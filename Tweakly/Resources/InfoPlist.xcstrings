@@ -1,0 +1,42 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSAudioCaptureUsageDescription": {
+      "comment": "Privacy - System Audio Recording usage description",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Lautstärkemixer gibt jede App mit der Lautstärke und über die Ausgabe wieder, die du dafür auswählst. Es wird nichts aufgenommen oder gespeichert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The volume mixer plays each app at the volume and on the output you choose for it. Nothing is recorded or kept."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量ミキサーは、各アプリの音声を選択した音量と出力で再生します。録音や保存は一切行いません。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Микшер громкости выводит каждое приложение с той громкостью и на тот выход, что вы для него выбрали. Ничего не записывается и не сохраняется."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量合成器会以你为每个App选择的音量和输出播放其声音。不会录制或保留任何内容。"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

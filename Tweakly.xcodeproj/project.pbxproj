@@ -1,0 +1,822 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7A0000000000000000000010 /* SystemMetrics in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000020 /* SystemMetrics */; };
+		7A0000000000000000000011 /* WindowSwitcherCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000022 /* WindowSwitcherCore */; };
+		7A0000000000000000000012 /* FinderCutCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000024 /* FinderCutCore */; };
+		7A0000000000000000000013 /* KeyboardCleaningCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000026 /* KeyboardCleaningCore */; };
+		7A0000000000000000000014 /* CustomIconCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000028 /* CustomIconCore */; };
+		7A0000000000000000000015 /* FanControlCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000002B /* FanControlCore */; };
+		7A0000000000000000000018 /* LanguageSwitchCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000002D /* LanguageSwitchCore */; };
+		7A000000000000000000003B /* TaskManagerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000003C /* TaskManagerCore */; };
+		7A000000000000000000003E /* LiveWallpaperCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000003F /* LiveWallpaperCore */; };
+		7A0000000000000000000016 /* FanControlCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000002C /* FanControlCore */; };
+		7A0000000000000000000017 /* TweaklyFanHelper in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000030 /* TweaklyFanHelper */; };
+		7A0000000000000000000041 /* LiveWallpaperCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000042 /* LiveWallpaperCore */; };
+		7A0000000000000000000050 /* AudioMixerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000051 /* AudioMixerCore */; };
+		7A0000000000000000000060 /* MouseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000061 /* MouseCore */; };
+		7A0000000000000000000090 /* UninstallerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000091 /* UninstallerCore */; };
+		7A0000000000000000000043 /* TweaklyMediaCleaner.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000044 /* TweaklyMediaCleaner.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7A0000000000000000000079 /* TweaklyFinderMenu.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000070 /* TweaklyFinderMenu.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7A000000000000000000007F /* FinderMenuCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000007E /* FinderMenuCore */; };
+		7A0000000000000000000081 /* FinderMenuCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000080 /* FinderMenuCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7A000000000000000000003A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0000000000000000000009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A0000000000000000000035;
+			remoteInfo = TweaklyFanHelper;
+		};
+		7A000000000000000000004D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0000000000000000000009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A0000000000000000000048;
+			remoteInfo = TweaklyMediaCleaner;
+		};
+		7A000000000000000000007B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0000000000000000000009 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A0000000000000000000072;
+			remoteInfo = TweaklyFinderMenu;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7A0000000000000000000034 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchServices;
+			dstSubfolderSpec = 1;
+			files = (
+				7A0000000000000000000017 /* TweaklyFanHelper in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A000000000000000000004C /* Embed XPC Services */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				7A0000000000000000000043 /* TweaklyMediaCleaner.xpc in Embed XPC Services */,
+			);
+			name = "Embed XPC Services";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A000000000000000000007A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7A0000000000000000000079 /* TweaklyFinderMenu.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7A0000000000000000000001 /* Tweakly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tweakly.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0000000000000000000030 /* TweaklyFanHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TweaklyFanHelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0000000000000000000044 /* TweaklyMediaCleaner.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = TweaklyMediaCleaner.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0000000000000000000070 /* TweaklyFinderMenu.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TweaklyFinderMenu.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		7A0000000000000000000002 /* Tweakly */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tweakly;
+			sourceTree = "<group>";
+		};
+		7A0000000000000000000031 /* TweaklyFanHelper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TweaklyFanHelper;
+			sourceTree = "<group>";
+		};
+		7A0000000000000000000045 /* TweaklyMediaCleaner */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TweaklyMediaCleaner;
+			sourceTree = "<group>";
+		};
+		7A0000000000000000000071 /* TweaklyFinderMenu */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TweaklyFinderMenu;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7A0000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A0000000000000000000010 /* SystemMetrics in Frameworks */,
+				7A0000000000000000000011 /* WindowSwitcherCore in Frameworks */,
+				7A0000000000000000000012 /* FinderCutCore in Frameworks */,
+				7A0000000000000000000013 /* KeyboardCleaningCore in Frameworks */,
+				7A0000000000000000000014 /* CustomIconCore in Frameworks */,
+				7A0000000000000000000015 /* FanControlCore in Frameworks */,
+				7A0000000000000000000018 /* LanguageSwitchCore in Frameworks */,
+				7A000000000000000000003B /* TaskManagerCore in Frameworks */,
+				7A000000000000000000003E /* LiveWallpaperCore in Frameworks */,
+				7A0000000000000000000050 /* AudioMixerCore in Frameworks */,
+				7A0000000000000000000060 /* MouseCore in Frameworks */,
+				7A0000000000000000000090 /* UninstallerCore in Frameworks */,
+				7A0000000000000000000081 /* FinderMenuCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000032 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A0000000000000000000016 /* FanControlCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000046 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A0000000000000000000041 /* LiveWallpaperCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000074 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A000000000000000000007F /* FinderMenuCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7A0000000000000000000004 = {
+			isa = PBXGroup;
+			children = (
+				7A0000000000000000000002 /* Tweakly */,
+				7A0000000000000000000031 /* TweaklyFanHelper */,
+				7A0000000000000000000045 /* TweaklyMediaCleaner */,
+				7A0000000000000000000071 /* TweaklyFinderMenu */,
+				7A0000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7A0000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7A0000000000000000000001 /* Tweakly.app */,
+				7A0000000000000000000030 /* TweaklyFanHelper */,
+				7A0000000000000000000044 /* TweaklyMediaCleaner.xpc */,
+				7A0000000000000000000070 /* TweaklyFinderMenu.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7A0000000000000000000006 /* Tweakly */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A000000000000000000000B /* Build configuration list for PBXNativeTarget "Tweakly" */;
+			buildPhases = (
+				7A0000000000000000000007 /* Sources */,
+				7A0000000000000000000003 /* Frameworks */,
+				7A0000000000000000000008 /* Resources */,
+				7A0000000000000000000034 /* CopyFiles */,
+				7A000000000000000000004C /* Embed XPC Services */,
+				7A000000000000000000007A /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7A0000000000000000000039 /* PBXTargetDependency */,
+				7A000000000000000000004E /* PBXTargetDependency */,
+				7A000000000000000000007C /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7A0000000000000000000002 /* Tweakly */,
+			);
+			name = Tweakly;
+			packageProductDependencies = (
+				7A0000000000000000000020 /* SystemMetrics */,
+				7A0000000000000000000022 /* WindowSwitcherCore */,
+				7A0000000000000000000024 /* FinderCutCore */,
+				7A0000000000000000000026 /* KeyboardCleaningCore */,
+				7A0000000000000000000028 /* CustomIconCore */,
+				7A000000000000000000002B /* FanControlCore */,
+				7A000000000000000000002D /* LanguageSwitchCore */,
+				7A000000000000000000003C /* TaskManagerCore */,
+				7A000000000000000000003F /* LiveWallpaperCore */,
+				7A0000000000000000000051 /* AudioMixerCore */,
+				7A0000000000000000000061 /* MouseCore */,
+				7A0000000000000000000091 /* UninstallerCore */,
+				7A0000000000000000000080 /* FinderMenuCore */,
+			);
+			productName = Tweakly;
+			productReference = 7A0000000000000000000001 /* Tweakly.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7A0000000000000000000035 /* TweaklyFanHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A0000000000000000000036 /* Build configuration list for PBXNativeTarget "TweaklyFanHelper" */;
+			buildPhases = (
+				7A0000000000000000000033 /* Sources */,
+				7A0000000000000000000032 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A0000000000000000000031 /* TweaklyFanHelper */,
+			);
+			name = TweaklyFanHelper;
+			packageProductDependencies = (
+				7A000000000000000000002C /* FanControlCore */,
+			);
+			productName = TweaklyFanHelper;
+			productReference = 7A0000000000000000000030 /* TweaklyFanHelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		7A0000000000000000000048 /* TweaklyMediaCleaner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A0000000000000000000049 /* Build configuration list for PBXNativeTarget "TweaklyMediaCleaner" */;
+			buildPhases = (
+				7A0000000000000000000047 /* Sources */,
+				7A0000000000000000000046 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A0000000000000000000045 /* TweaklyMediaCleaner */,
+			);
+			name = TweaklyMediaCleaner;
+			packageProductDependencies = (
+				7A0000000000000000000042 /* LiveWallpaperCore */,
+			);
+			productName = TweaklyMediaCleaner;
+			productReference = 7A0000000000000000000044 /* TweaklyMediaCleaner.xpc */;
+			productType = "com.apple.product-type.xpc-service";
+		};
+		7A0000000000000000000072 /* TweaklyFinderMenu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A0000000000000000000076 /* Build configuration list for PBXNativeTarget "TweaklyFinderMenu" */;
+			buildPhases = (
+				7A0000000000000000000073 /* Sources */,
+				7A0000000000000000000074 /* Frameworks */,
+				7A0000000000000000000075 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				7A0000000000000000000071 /* TweaklyFinderMenu */,
+			);
+			name = TweaklyFinderMenu;
+			packageProductDependencies = (
+				7A000000000000000000007E /* FinderMenuCore */,
+			);
+			productName = TweaklyFinderMenu;
+			productReference = 7A0000000000000000000070 /* TweaklyFinderMenu.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7A0000000000000000000009 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2720;
+				LastUpgradeCheck = 2720;
+				TargetAttributes = {
+					7A0000000000000000000006 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+					7A0000000000000000000035 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+					7A0000000000000000000048 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+					7A0000000000000000000072 = {
+						CreatedOnToolsVersion = 27.2;
+					};
+				};
+			};
+			buildConfigurationList = 7A000000000000000000000A /* Build configuration list for PBXProject "Tweakly" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				de,
+				ja,
+				ru,
+				"zh-Hans",
+				Base,
+			);
+			mainGroup = 7A0000000000000000000004;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7A0000000000000000000021 /* XCLocalSwiftPackageReference "Packages/SystemMetrics" */,
+				7A0000000000000000000023 /* XCLocalSwiftPackageReference "Packages/WindowSwitcherCore" */,
+				7A0000000000000000000025 /* XCLocalSwiftPackageReference "Packages/FinderCutCore" */,
+				7A0000000000000000000027 /* XCLocalSwiftPackageReference "Packages/KeyboardCleaningCore" */,
+				7A0000000000000000000029 /* XCLocalSwiftPackageReference "Packages/CustomIconCore" */,
+				7A000000000000000000002A /* XCLocalSwiftPackageReference "Packages/FanControlCore" */,
+				7A000000000000000000002E /* XCLocalSwiftPackageReference "Packages/LanguageSwitchCore" */,
+				7A000000000000000000003D /* XCLocalSwiftPackageReference "Packages/TaskManagerCore" */,
+				7A0000000000000000000040 /* XCLocalSwiftPackageReference "Packages/LiveWallpaperCore" */,
+				7A0000000000000000000052 /* XCLocalSwiftPackageReference "Packages/AudioMixerCore" */,
+				7A0000000000000000000062 /* XCLocalSwiftPackageReference "Packages/MouseCore" */,
+				7A000000000000000000007D /* XCLocalSwiftPackageReference "Packages/FinderMenuCore" */,
+				7A0000000000000000000092 /* XCLocalSwiftPackageReference "Packages/UninstallerCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 7A0000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7A0000000000000000000006 /* Tweakly */,
+				7A0000000000000000000035 /* TweaklyFanHelper */,
+				7A0000000000000000000048 /* TweaklyMediaCleaner */,
+				7A0000000000000000000072 /* TweaklyFinderMenu */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7A0000000000000000000075 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7A0000000000000000000073 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000033 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7A0000000000000000000047 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7A000000000000000000007C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A0000000000000000000072 /* TweaklyFinderMenu */;
+			targetProxy = 7A000000000000000000007B /* PBXContainerItemProxy */;
+		};
+		7A0000000000000000000039 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A0000000000000000000035 /* TweaklyFanHelper */;
+			targetProxy = 7A000000000000000000003A /* PBXContainerItemProxy */;
+		};
+		7A000000000000000000004E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A0000000000000000000048 /* TweaklyMediaCleaner */;
+			targetProxy = 7A000000000000000000004D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		7A0000000000000000000077 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/TweaklyFinderMenu.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/TweaklyFinderMenu-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Tweakly;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID).FinderMenu";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Debug;
+		};
+		7A0000000000000000000078 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Config/TweaklyFinderMenu.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/TweaklyFinderMenu-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Tweakly;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID).FinderMenu";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Release;
+		};
+		7A000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TWEAKLY_BUNDLE_ID = me.tweakly.Tweakly;
+			};
+			name = Debug;
+		};
+		7A000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TWEAKLY_BUNDLE_ID = me.tweakly.Tweakly;
+			};
+			name = Release;
+		};
+		7A000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Tweakly-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Tweakly;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7A000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Tweakly-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Tweakly;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7A0000000000000000000037 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_HARDENED_RUNTIME = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Debug;
+		};
+		7A0000000000000000000038 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_HARDENED_RUNTIME = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Release;
+		};
+		7A000000000000000000004A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TweaklyMediaCleaner.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/TweaklyMediaCleaner-Info.plist";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID).MediaCleaner";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Debug;
+		};
+		7A000000000000000000004B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/TweaklyMediaCleaner.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/TweaklyMediaCleaner-Info.plist";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TWEAKLY_BUNDLE_ID).MediaCleaner";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7A0000000000000000000076 /* Build configuration list for PBXNativeTarget "TweaklyFinderMenu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A0000000000000000000077 /* Debug */,
+				7A0000000000000000000078 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A000000000000000000000A /* Build configuration list for PBXProject "Tweakly" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A000000000000000000000C /* Debug */,
+				7A000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A000000000000000000000B /* Build configuration list for PBXNativeTarget "Tweakly" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A000000000000000000000E /* Debug */,
+				7A000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A0000000000000000000036 /* Build configuration list for PBXNativeTarget "TweaklyFanHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A0000000000000000000037 /* Debug */,
+				7A0000000000000000000038 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A0000000000000000000049 /* Build configuration list for PBXNativeTarget "TweaklyMediaCleaner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A000000000000000000004A /* Debug */,
+				7A000000000000000000004B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7A000000000000000000007D /* XCLocalSwiftPackageReference "Packages/FinderMenuCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FinderMenuCore;
+		};
+		7A0000000000000000000021 /* XCLocalSwiftPackageReference "Packages/SystemMetrics" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SystemMetrics;
+		};
+		7A0000000000000000000023 /* XCLocalSwiftPackageReference "Packages/WindowSwitcherCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/WindowSwitcherCore;
+		};
+		7A0000000000000000000025 /* XCLocalSwiftPackageReference "Packages/FinderCutCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FinderCutCore;
+		};
+		7A0000000000000000000027 /* XCLocalSwiftPackageReference "Packages/KeyboardCleaningCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/KeyboardCleaningCore;
+		};
+		7A0000000000000000000029 /* XCLocalSwiftPackageReference "Packages/CustomIconCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CustomIconCore;
+		};
+		7A000000000000000000002A /* XCLocalSwiftPackageReference "Packages/FanControlCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/FanControlCore;
+		};
+		7A000000000000000000002E /* XCLocalSwiftPackageReference "Packages/LanguageSwitchCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LanguageSwitchCore;
+		};
+		7A000000000000000000003D /* XCLocalSwiftPackageReference "Packages/TaskManagerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/TaskManagerCore;
+		};
+		7A0000000000000000000040 /* XCLocalSwiftPackageReference "Packages/LiveWallpaperCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/LiveWallpaperCore;
+		};
+		7A0000000000000000000052 /* XCLocalSwiftPackageReference "Packages/AudioMixerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/AudioMixerCore;
+		};
+		7A0000000000000000000062 /* XCLocalSwiftPackageReference "Packages/MouseCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/MouseCore;
+		};
+		7A0000000000000000000092 /* XCLocalSwiftPackageReference "Packages/UninstallerCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/UninstallerCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7A000000000000000000007E /* FinderMenuCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FinderMenuCore;
+		};
+		7A0000000000000000000080 /* FinderMenuCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FinderMenuCore;
+		};
+		7A0000000000000000000020 /* SystemMetrics */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SystemMetrics;
+		};
+		7A0000000000000000000022 /* WindowSwitcherCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WindowSwitcherCore;
+		};
+		7A0000000000000000000024 /* FinderCutCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FinderCutCore;
+		};
+		7A0000000000000000000026 /* KeyboardCleaningCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KeyboardCleaningCore;
+		};
+		7A0000000000000000000028 /* CustomIconCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CustomIconCore;
+		};
+		7A000000000000000000002B /* FanControlCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FanControlCore;
+		};
+		7A000000000000000000002C /* FanControlCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FanControlCore;
+		};
+		7A000000000000000000002D /* LanguageSwitchCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LanguageSwitchCore;
+		};
+		7A000000000000000000003C /* TaskManagerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TaskManagerCore;
+		};
+		7A000000000000000000003F /* LiveWallpaperCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LiveWallpaperCore;
+		};
+		7A0000000000000000000042 /* LiveWallpaperCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LiveWallpaperCore;
+		};
+		7A0000000000000000000051 /* AudioMixerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AudioMixerCore;
+		};
+		7A0000000000000000000061 /* MouseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MouseCore;
+		};
+		7A0000000000000000000091 /* UninstallerCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = UninstallerCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7A0000000000000000000009 /* Project object */;
+}
