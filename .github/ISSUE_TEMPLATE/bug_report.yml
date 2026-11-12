@@ -73,7 +73,7 @@ body:
     attributes:
       label: Tweakly version
       description: The About page in Tweakly's window shows the version and the build.
-      placeholder: 1.0.0 (2)
+      placeholder: 1.0.1 (3)
     validations:
       required: true
   - type: input
