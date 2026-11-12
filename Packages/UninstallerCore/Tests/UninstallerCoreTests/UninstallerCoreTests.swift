@@ -231,15 +231,17 @@ private enum Apps {
             moving: ["/Applications/Xcode.app", "/Library/LaunchDaemons/a'b.plist"], toTrash: "/Users/x/.Trash",
             stopping: [StoppedJob(domain: .system, plist: "/Library/LaunchDaemons/a'b.plist")], owner: 501, group: 20)
         let lines = script.split(separator: "\n").map(String.init)
-        #expect(lines[0] == "/bin/launchctl 'bootout' 'system' '/Library/LaunchDaemons/a'\\''b.plist' 2>/dev/null")
-        #expect(lines[1].hasPrefix("if [ -e '/Applications/Xcode.app' ] || [ -L '/Applications/Xcode.app' ]; then"))
-        #expect(lines[1].contains("for t in '/Users/x/.Trash/Xcode.app' '/Users/x/.Trash/Xcode 2.app' "))
-        #expect(lines[1].contains("/bin/mv -n '/Applications/Xcode.app' \"$t\""))
-        #expect(lines[1].contains("-type f -links 1"))
-        #expect(lines[1].contains("-exec /usr/sbin/chown -h 501:20 {} +"))
-        #expect(!lines[1].contains("chown -R"))
-        #expect(lines[1].contains("echo \"0\t$t\""))
-        #expect(lines[2].contains("'/Users/x/.Trash/a'\\''b 2.plist'"))
+        #expect(lines[0] == "if [ -L '/Users/x/.Trash' ] || [ ! -d '/Users/x/.Trash' ]; then exit 1; fi")
+        #expect(lines[1] == "/bin/launchctl 'bootout' 'system' '/Library/LaunchDaemons/a'\\''b.plist' 2>/dev/null")
+        #expect(
+            lines[2].hasPrefix("if { [ -e '/Applications/Xcode.app' ] || [ -L '/Applications/Xcode.app' ]; }; then"))
+        #expect(lines[2].contains("for t in '/Users/x/.Trash/Xcode.app' '/Users/x/.Trash/Xcode 2.app' "))
+        #expect(lines[2].contains("/bin/mv -n '/Applications/Xcode.app' \"$t\""))
+        #expect(lines[2].contains("-type f -links 1"))
+        #expect(lines[2].contains("-exec /usr/sbin/chown -h 501:20 {} +"))
+        #expect(!lines[2].contains("chown -R"))
+        #expect(lines[2].contains("echo \"0\t$t\""))
+        #expect(lines[3].contains("'/Users/x/.Trash/a'\\''b 2.plist'"))
         #expect(lines.last == "exit 0")
     }
 
@@ -249,12 +251,102 @@ private enum Apps {
             stopping: [StoppedJob(domain: .system, plist: "/Library/LaunchDaemons/a.plist")], owner: 501, group: 20,
             firstMustMove: true, keepingOwner: [0])
         let lines = script.split(separator: "\n").map(String.init)
-        #expect(lines[0].hasPrefix("if [ -e '/Applications/A.app' ]"))
-        #expect(!lines[0].contains("chown"))
-        #expect(lines[1] == "if [ -e '/Applications/A.app' ] || [ -L '/Applications/A.app' ]; then exit 0; fi")
-        #expect(lines[2].hasPrefix("/bin/launchctl 'bootout'"))
-        #expect(lines[3].contains("chown"))
-        #expect(lines[3].contains("echo \"1\t$t\""))
+        #expect(lines[1].hasPrefix("if { [ -e '/Applications/A.app' ]"))
+        #expect(!lines[1].contains("chown"))
+        #expect(lines[2] == "if [ -e '/Applications/A.app' ] || [ -L '/Applications/A.app' ]; then exit 0; fi")
+        #expect(lines[3].hasPrefix("/bin/launchctl 'bootout'"))
+        #expect(lines[4].contains("chown"))
+        #expect(lines[4].contains("echo \"1\t$t\""))
+    }
+
+    /// A new folder by the path `pwd -P` gives for it, which runs through /private, unlike `resolvingSymlinksInPath`.
+    private func temporaryFolder(_ name: String) throws -> String {
+        let path = FileManager.default.temporaryDirectory.appending(path: name + UUID().uuidString).path
+        try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        guard let real = realpath(path, nil) else { throw CocoaError(.fileNoSuchFile) }
+        defer { free(real) }
+        return String(cString: real)
+    }
+
+    /// Runs a removal script as the shell would, and gives back what it said it moved.
+    private func run(_ script: String) throws -> (moved: [Int: String], status: Int32) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        return (AdministratorScript.movedItems(in: output), process.terminationStatus)
+    }
+
+    @Test func aFolderSwappedForALinkWhileThePasswordIsAskedKeepsWhatItLeadsTo() throws {
+        let manager = FileManager.default
+        let root = try temporaryFolder("uninstaller-swap-")
+        defer { try? manager.removeItem(atPath: root) }
+        let trash = root + "/Trash"
+        for folder in [trash, root + "/Library/Preferences", root + "/System/Preferences"] {
+            try manager.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        }
+        try Data("mine".utf8).write(to: URL(fileURLWithPath: root + "/Library/Preferences/a.plist"))
+        try Data("system".utf8).write(to: URL(fileURLWithPath: root + "/System/Preferences/a.plist"))
+        let realParent = root + "/Library/Preferences"
+        let script = AdministratorScript.removal(
+            moving: [root + "/Library/Preferences/a.plist"], toTrash: trash, stopping: [], owner: getuid(),
+            group: getgid(), realParents: [0: realParent])
+        // After the scan and before the password: the person's folder now leads to the system's.
+        try manager.moveItem(atPath: root + "/Library/Preferences", toPath: root + "/Library/Old")
+        try manager.createSymbolicLink(
+            atPath: root + "/Library/Preferences", withDestinationPath: root + "/System/Preferences")
+        let result = try run(script)
+        #expect(result.moved.isEmpty)
+        #expect(manager.fileExists(atPath: root + "/System/Preferences/a.plist"))
+        #expect(try manager.contentsOfDirectory(atPath: trash).isEmpty)
+    }
+
+    @Test func anItemWhoseFolderIsUnchangedStillMoves() throws {
+        let manager = FileManager.default
+        let root = try temporaryFolder("uninstaller-same-")
+        defer { try? manager.removeItem(atPath: root) }
+        let trash = root + "/Trash"
+        try manager.createDirectory(atPath: trash, withIntermediateDirectories: true)
+        try manager.createDirectory(atPath: root + "/Library/Preferences", withIntermediateDirectories: true)
+        try Data("mine".utf8).write(to: URL(fileURLWithPath: root + "/Library/Preferences/a.plist"))
+        let script = AdministratorScript.removal(
+            moving: [root + "/Library/Preferences/a.plist"], toTrash: trash, stopping: [], owner: getuid(),
+            group: getgid(), realParents: [0: root + "/Library/Preferences"])
+        let result = try run(script)
+        #expect(result.moved == [0: trash + "/a.plist"])
+    }
+
+    @Test func anItemWithNoFolderToCheckStays() throws {
+        let manager = FileManager.default
+        let root = try temporaryFolder("uninstaller-unknown-")
+        defer { try? manager.removeItem(atPath: root) }
+        try manager.createDirectory(atPath: root + "/Trash", withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: URL(fileURLWithPath: root + "/a.plist"))
+        let result = try run(
+            AdministratorScript.removal(
+                moving: [root + "/a.plist"], toTrash: root + "/Trash", stopping: [], owner: getuid(), group: getgid(),
+                realParents: [0: ""]))
+        #expect(result.moved.isEmpty)
+        #expect(manager.fileExists(atPath: root + "/a.plist"))
+    }
+
+    @Test func aTrashSwappedForALinkMovesNothing() throws {
+        let manager = FileManager.default
+        let root = try temporaryFolder("uninstaller-trash-")
+        defer { try? manager.removeItem(atPath: root) }
+        try manager.createDirectory(atPath: root + "/Elsewhere", withIntermediateDirectories: true)
+        try manager.createSymbolicLink(atPath: root + "/Trash", withDestinationPath: root + "/Elsewhere")
+        try Data("x".utf8).write(to: URL(fileURLWithPath: root + "/a.plist"))
+        let result = try run(
+            AdministratorScript.removal(
+                moving: [root + "/a.plist"], toTrash: root + "/Trash", stopping: [], owner: getuid(), group: getgid()))
+        #expect(result.status == 1)
+        #expect(result.moved.isEmpty)
+        #expect(manager.fileExists(atPath: root + "/a.plist"))
     }
 
     @Test func nothingElseMovesWhenTheAppStays() throws {
@@ -339,5 +431,46 @@ private enum Apps {
         #expect(items.map(\.name) == ["A.app", "a", "a", "a"])
         #expect(items.map(\.category) == [.app, .data, .data, .caches])
         #expect(items[1].size == 20)
+    }
+}
+
+@Suite struct RemovalOrderTests {
+    private let app = Leftover(path: "/Applications/Docker.app", place: nil)
+    private let data = Leftover(path: "/Users/x/Library/Application Support/Docker", place: .applicationSupport)
+    private let daemon = Leftover(
+        path: "/Library/LaunchDaemons/com.docker.vmnetd.plist", place: .systemLaunchDaemons, needsAdministrator: true)
+
+    @Test func theAppWaitsForThePasswordWhenAnythingNeedsIt() {
+        let order = RemovalOrder.plan([app, data, daemon], isAppStore: false)
+        #expect(order.bundleAlone == nil)
+        #expect(order.privileged == [app, daemon])
+        #expect(order.appFirst)
+        // The person's own app is theirs already: no walk through its files to hand it over.
+        #expect(order.keepingOwner == [0])
+        #expect(order.plain == [data])
+    }
+
+    @Test func theAppGoesAloneFirstWhenNothingNeedsAPassword() {
+        let order = RemovalOrder.plan([app, data], isAppStore: false)
+        #expect(order.bundleAlone == app)
+        #expect(order.privileged.isEmpty)
+        #expect(!order.appFirst)
+        #expect(order.plain == [data])
+    }
+
+    @Test func anAppOnlyRootCanMoveIsHandedOverUnlessFromTheAppStore() {
+        var rootsApp = app
+        rootsApp.needsAdministrator = true
+        #expect(RemovalOrder.plan([rootsApp, data], isAppStore: false).keepingOwner.isEmpty)
+        #expect(RemovalOrder.plan([rootsApp, data], isAppStore: true).keepingOwner == [0])
+        #expect(RemovalOrder.plan([rootsApp, data], isAppStore: true).privileged == [rootsApp])
+    }
+
+    @Test func aResetHasNoAppToPutFirst() {
+        let order = RemovalOrder.plan([data, daemon], isAppStore: false)
+        #expect(order.bundleAlone == nil)
+        #expect(order.privileged == [daemon])
+        #expect(!order.appFirst)
+        #expect(order.keepingOwner.isEmpty)
     }
 }

@@ -62,6 +62,43 @@ public struct StoppedJob: Sendable, Hashable {
     public var arguments: [String] { ["bootout", domain.target, plist] }
 }
 
+/// The order in which an app and its files go, so that a person who cancels the request for a password keeps
+/// everything: once anything needs the password, the app itself goes first behind it too, even when it is the person's
+/// own and could have gone without. Moved first on its own, it would already be in the Trash when the request is
+/// cancelled, leaving its system services behind with nothing to list them by.
+public struct RemovalOrder: Equatable, Sendable {
+    /// The app, moved on its own before anything else, when nothing needs a password.
+    public var bundleAlone: Leftover?
+    /// What goes behind the one request for a password, the app first when `appFirst`.
+    public var privileged: [Leftover] = []
+    public var appFirst = false
+    /// Indices in `privileged` to leave owned as they are, see `AdministratorScript.removal`.
+    public var keepingOwner: Set<Int> = []
+    /// The person's own files, moved once the rest has gone.
+    public var plain: [Leftover] = []
+
+    public static func plan(_ items: [Leftover], isAppStore: Bool) -> RemovalOrder {
+        var order = RemovalOrder()
+        let bundle = items.first { $0.place == nil }
+        let rest = items.filter { $0.place != nil }
+        order.plain = rest.filter { !$0.needsAdministrator }
+        let privileged = rest.filter(\.needsAdministrator)
+        guard let bundle else {
+            order.privileged = privileged
+            return order
+        }
+        if bundle.needsAdministrator || !privileged.isEmpty {
+            order.privileged = [bundle] + privileged
+            order.appFirst = true
+            // Root moving the person's own app leaves it theirs; an App Store app cannot be handed over at all.
+            if !bundle.needsAdministrator || isAppStore { order.keepingOwner = [0] }
+        } else {
+            order.bundleAlone = bundle
+        }
+        return order
+    }
+}
+
 /// The shell script that removes what only an administrator can, run once behind the system's request for a password.
 /// It stops the jobs, then moves each item straight into the person's Trash, under the first of its names that is free,
 /// as Finder does. Each item is then handed to the person where macOS allows it, so emptying the Trash needs no password;
@@ -73,13 +110,18 @@ public enum AdministratorScript {
     /// - Parameters:
     ///   - firstMustMove: The first item is the app itself, which goes before anything else does, and if it cannot go,
     ///     nothing else does either: an app left in place without its data would be a reset nobody asked for.
-    ///   - keepingOwner: Items left root's, as an App Store app, whose bundle macOS will not let even root hand over:
-    ///     trying would only walk every file in it.
+    ///   - keepingOwner: Items left as they are owned: an App Store app, whose bundle macOS will not let even root hand
+    ///     over, and an app that is the person's already. Handing either over would only walk every file in it.
+    ///   - realParents: The folder each item was found in, with every link in its path followed, read just before the
+    ///     request. The password dialog can stay up for minutes, and a folder the person can write to could be swapped
+    ///     for a link to a system folder meanwhile, which root would then empty into the person's Trash and hand over.
+    ///     An item whose folder no longer resolves to the same place stays.
     public static func removal(
         moving paths: [String], toTrash trash: String, stopping jobs: [StoppedJob], owner uid: UInt32,
-        group gid: UInt32, firstMustMove: Bool = false, keepingOwner: Set<Int> = []
+        group gid: UInt32, firstMustMove: Bool = false, keepingOwner: Set<Int> = [], realParents: [Int: String] = [:]
     ) -> String {
-        var lines: [String] = []
+        // The Trash itself swapped for a link would send everything somewhere else.
+        var lines = ["if [ -L \(quoted(trash)) ] || [ ! -d \(quoted(trash)) ]; then exit 1; fi"]
         func move(_ index: Int) {
             let path = paths[index]
             let source = quoted(path)
@@ -91,10 +133,16 @@ public enum AdministratorScript {
                 ? ""
                 : "/usr/bin/find \"$t\" -xdev \\( -type d -o -type l -o \\( -type f -links 1 \\) \\) "
                     + "-exec /usr/sbin/chown -h \(uid):\(gid) {} + 2>/dev/null; "
+            // Only where the folder is still the one the scan found.
+            let inPlace = realParents[index].map {
+                let parent = quoted((path as NSString).deletingLastPathComponent)
+                return "[ \"$(cd -P -- \(parent) 2>/dev/null && pwd -P)\" = \(quoted($0)) ] && "
+            }
             // A name already taken is skipped: `mv` would put the item inside a folder of that name.
             // Only an item that is there: one already gone would read as moved.
             lines.append(
-                "if [ -e \(source) ] || [ -L \(source) ]; then for t in \(targets.joined(separator: " ")); do "
+                "if \(inPlace ?? ""){ [ -e \(source) ] || [ -L \(source) ]; }; then "
+                    + "for t in \(targets.joined(separator: " ")); do "
                     + "[ -e \"$t\" ] || [ -L \"$t\" ] && continue; /bin/mv -n \(source) \"$t\" 2>/dev/null; "
                     + "if [ ! -e \(source) ] && [ ! -L \(source) ]; then \(handOver)"
                     + "echo \"\(index)\t$t\"; break; fi; done; fi")

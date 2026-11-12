@@ -24,32 +24,28 @@ import os
         if let problem = await quit(app) { return Outcome(problem: problem) }
         var outcome = Outcome()
         // The app itself goes first, and if it cannot, nothing else goes: its data gone with the app still there would
-        // be a reset nobody asked for. Only an uninstall lists the app.
-        let bundle = items.first { $0.place == nil }
+        // be a reset nobody asked for. Behind the password too when anything needs it, so Cancel keeps everything.
+        let order = RemovalOrder.plan(items, isAppStore: app.isAppStore)
         let appStays = String(localized: "“\(app.name)” could not be moved to the Trash, so nothing else was.")
-        if let bundle, !bundle.needsAdministrator {
+        if let bundle = order.bundleAlone {
             let (moved, _) = await moveToTrash([(bundle, URL(fileURLWithPath: bundle.path))])
             guard !moved.isEmpty else { return Outcome(problem: appStays) }
             outcome.moved += moved
         }
-        let rest = items.filter { $0.place != nil }
-        let toTrash = rest.filter { !$0.needsAdministrator }.map { ($0, URL(fileURLWithPath: $0.path)) }
-        var privileged = rest.filter(\.needsAdministrator)
-        let appFirst = bundle?.needsAdministrator == true
-        if appFirst, let bundle { privileged.insert(bundle, at: 0) }
-        if !privileged.isEmpty {
+        let toTrash = order.plain.map { ($0, URL(fileURLWithPath: $0.path)) }
+        if !order.privileged.isEmpty {
             guard let trash = personsTrash() else {
                 return Outcome(problem: String(localized: "macOS did not let Tweakly move the files."))
             }
-            switch moveWithAdministratorRights(
-                privileged, toTrash: trash, appName: app.name, appFirst: appFirst, isAppStore: app.isAppStore)
-            {
+            switch moveWithAdministratorRights(order, toTrash: trash, appName: app.name) {
             case .cancelled:
                 return Outcome(wasCancelled: true)
             case .failed(let message):
                 return Outcome(problem: message)
             case .moved(let moved, let failed):
-                if appFirst, let bundle, failed.contains(bundle) { return Outcome(problem: appStays) }
+                if order.appFirst, let bundle = order.privileged.first, failed.contains(bundle) {
+                    return Outcome(problem: appStays)
+                }
                 outcome.moved += moved
                 outcome.failed += failed
             }
@@ -62,6 +58,17 @@ import os
         outcome.moved += moved
         outcome.failed += failed
         return outcome
+    }
+
+    /// The folder an item is in with every link followed, or nil when a link on the way leads somewhere else than the
+    /// path says: the scan looked where the path says, and root must not act anywhere else. /var, /tmp and /etc lead into
+    /// /private on every Mac.
+    private static func realParent(of path: String) -> String? {
+        let parent = (path as NSString).deletingLastPathComponent
+        guard let resolved = realpath(parent, nil) else { return nil }
+        defer { free(resolved) }
+        let real = String(cString: resolved)
+        return real == parent || real == "/private" + parent ? real : nil
     }
 
     /// The person's Trash, made if it is missing, so that root never makes it and keeps it.
@@ -115,12 +122,17 @@ import os
     /// straight into the person's Trash: a root-owned App Store app cannot be handed over first, as App Management
     /// guards what is inside it even from root, and Finder's way to the Trash refuses what is not the person's.
     private static func moveWithAdministratorRights(
-        _ items: [Leftover], toTrash trash: String, appName: String, appFirst: Bool, isAppStore: Bool
+        _ order: RemovalOrder, toTrash trash: String, appName: String
     ) -> PrivilegedResult {
+        let items = order.privileged
         let paths = items.map(\.path)
+        // An item whose folder leads elsewhere gets a folder `pwd -P` never prints, so it stays and is reported as not
+        // moved; the app itself staying keeps everything.
+        let realParents = Dictionary(uniqueKeysWithValues: paths.enumerated().map { ($0, realParent(of: $1) ?? "") })
+        if order.appFirst, realParents[0] == "" { return .moved(moved: [], failed: items) }
         let script = AdministratorScript.removal(
             moving: paths, toTrash: trash, stopping: items.compactMap(\.job), owner: getuid(), group: getgid(),
-            firstMustMove: appFirst, keepingOwner: appFirst && isAppStore ? [0] : [])
+            firstMustMove: order.appFirst, keepingOwner: order.keepingOwner, realParents: realParents)
         let prompt = String(localized: "Tweakly is moving “\(appName)” and its system files to the Trash.")
         let output: String
         switch AdministratorPrompt.run(script, prompt: prompt) {
