@@ -9,8 +9,8 @@ struct MousePageView: View {
     private static let canSetPointer = HIDEventSystemClients.canMakePassive
 
     @Bindable var settings: AppSettings
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = Self.isTrusted
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
 
     var body: some View {
         Form {
@@ -22,15 +22,13 @@ struct MousePageView: View {
                     ),
                     isOn: isEnabled)
             }
-            if settings.mouseEnabled, !hasAccessibility {
+            if settings.mouseEnabled, !access.accessibility {
                 Section {
-                    MissingPermissionRow(
+                    MissingAccessRow(
                         title: Text("Accessibility"),
                         detail: Text(
                             "The pointer already works. The wheel and the side buttons wait for Accessibility."),
-                        ask: SystemPermission.accessibility.ask)
-                } footer: {
-                    PermissionAdvice()
+                        open: { router.open(.permissions) })
                 }
             }
             Section {
@@ -101,8 +99,6 @@ struct MousePageView: View {
             .disabled(!settings.mouseEnabled)
         }
         .formStyle(.grouped)
-        .pollingPermissions(
-            whileVisible: isWindowVisible && settings.mouseEnabled, every: hasAccessibility ? 5 : 1, refreshPermission)
     }
 
     private var speedStop: Binding<Int> {
@@ -125,24 +121,7 @@ struct MousePageView: View {
             get: { settings.mouseEnabled },
             set: { isOn in
                 settings.mouseEnabled = isOn
-                if isOn, !AXIsProcessTrusted() { SystemPermission.accessibility.ask() }
+                if isOn { access.askOnTurningOn(screenRecording: false) }
             })
-    }
-
-    /// A test copy showing made-up data draws the page as it looks with the permission given, as its agent leaves the
-    /// mouse alone then.
-    private static var isTrusted: Bool {
-        #if TWEAKLY_AUTOMATION
-            if DemoData.isOn { return true }
-        #endif
-        return AXIsProcessTrusted()
-    }
-
-    private func refreshPermission() {
-        let accessibility = Self.isTrusted
-        guard accessibility != hasAccessibility else { return }
-        hasAccessibility = accessibility
-        // The agent goes by its own check, and this tells it the moment to make that check.
-        ProcessEvents.post(.settingsChanged)
     }
 }

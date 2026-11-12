@@ -273,3 +273,23 @@ import Testing
         #expect(SystemDefinedEvent.subtype(of: event) != SystemDefinedEvent.auxiliaryKeysSubtype)
     }
 }
+
+@Suite struct PrivacyPreflightTests {
+    @Test func tccdNumbersMapToAnswers() {
+        #expect(PrivacyPreflight.answer(code: 0) == .allowed)
+        #expect(PrivacyPreflight.answer(code: 1) == .denied)
+        #expect(PrivacyPreflight.answer(code: 2) == .notAsked)
+    }
+
+    @Test func anUnknownNumberIsNotReadAsAnAnswer() {
+        #expect(PrivacyPreflight.answer(code: 3) == nil)
+        #expect(PrivacyPreflight.answer(code: -1) == nil)
+    }
+
+    @Test func askingNeverTraps() {
+        // From a test the answer is the test runner's, which may be anything; only that it comes back matters.
+        for service in PrivacyPreflight.Service.allCases {
+            _ = PrivacyPreflight.answer(for: service)
+        }
+    }
+}

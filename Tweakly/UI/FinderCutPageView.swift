@@ -4,9 +4,8 @@ import SwiftUI
 /// The page of cutting files in Finder: the switch, which keys do what, and the confirmation.
 struct FinderCutPageView: View {
     @Bindable var settings: AppSettings
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = AXIsProcessTrusted()
-    @State private var isShowingPermission = false
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
 
     var body: some View {
         Form {
@@ -15,14 +14,12 @@ struct FinderCutPageView: View {
                     symbol: MainPage.finderCut.symbol, title: Text("Cut Files with Command-X"),
                     detail: Text("Moves files with the keyboard, as in Windows."), isOn: isEnabled)
             }
-            if settings.finderCutEnabled, !hasAccessibility {
+            if settings.finderCutEnabled, !access.accessibility {
                 Section {
-                    MissingPermissionRow(
+                    MissingAccessRow(
                         title: Text("Accessibility"),
                         detail: Text("Off until Accessibility is allowed. Command-X works as usual until then."),
-                        ask: SystemPermission.accessibility.ask)
-                } footer: {
-                    PermissionAdvice()
+                        open: { router.open(.permissions) })
                 }
             }
             Section {
@@ -40,18 +37,10 @@ struct FinderCutPageView: View {
                 .disabled(!settings.finderCutEnabled)
             }
             .sectionActions {
-                Button("Permissions…") { isShowingPermission = true }
+                Button("Permissions…") { router.open(.permissions) }
             }
         }
         .formStyle(.grouped)
-        .sheet(isPresented: $isShowingPermission) {
-            PermissionSheet(
-                detail: "To tell files from text in Finder and to give it the command to move files.",
-                isGranted: hasAccessibility)
-        }
-        .pollingPermissions(
-            whileVisible: isWindowVisible && (settings.finderCutEnabled || isShowingPermission),
-            every: isShowingPermission || !hasAccessibility ? 1 : 5, refresh)
     }
 
     /// The keys as they are printed on the keyboard, so they read the same in any language. VoiceOver gets their names.
@@ -68,15 +57,7 @@ struct FinderCutPageView: View {
             get: { settings.finderCutEnabled },
             set: { isOn in
                 settings.finderCutEnabled = isOn
-                if isOn, !AXIsProcessTrusted() { SystemPermission.accessibility.ask() }
+                if isOn { access.askOnTurningOn(screenRecording: false) }
             })
-    }
-
-    private func refresh() {
-        let accessibility = AXIsProcessTrusted()
-        guard accessibility != hasAccessibility else { return }
-        hasAccessibility = accessibility
-        // The agent goes by its own check, and this tells it the moment to make that check.
-        ProcessEvents.post(.settingsChanged)
     }
 }

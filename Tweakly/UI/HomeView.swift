@@ -14,12 +14,8 @@ import TipKit
 struct HomeView: View {
     let data: StatsLiveData
     let settings: AppSettings
-    let isWindowVisible: Bool
     let open: (MainPage) -> Void
-    /// Read when the page appears and when the window comes back into view. The tweaks' own pages watch them while
-    /// someone waits for one; here a missing one only has to be noticed. Not in the initial value, which SwiftUI works
-    /// out again each time the window's content is rebuilt, and asking for Screen Recording alone takes 12 to 37 ms.
-    @State private var permissions = TweakPermissions.assumed
+    @Environment(SystemAccess.self) private var access
     private let startTip = StartTip()
     /// The tip's group is there only while the tip is, so no empty group is left behind once it has gone.
     @State private var showsStartTip = false
@@ -41,20 +37,12 @@ struct HomeView: View {
             Section {
                 MetricRows(data: data, settings: settings, open: open)
             }
-            TweaksSection(settings: settings, permissions: permissions, open: open)
+            TweaksSection(settings: settings, permissions: TweakPermissions(access), open: open)
             ActivitySection(data: data)
         }
         .formStyle(.grouped)
         .task {
             for await shows in startTip.shouldDisplayUpdates { showsStartTip = shows }
-        }
-        .onAppear { permissions = .current }
-        .onChange(of: isWindowVisible) {
-            if isWindowVisible { permissions = .current }
-        }
-        // Coming back from System Settings with a permission given, while the window stayed in view behind it.
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            permissions = .current
         }
     }
 }
@@ -471,21 +459,17 @@ private struct LevelBar: View {
 
 // MARK: - Tweaks
 
-/// Whether the permissions the tweaks need are there. Asking costs a call to the system each, so it is done when the
-/// page appears rather than all the time.
+/// Whether the permissions the tweaks need are there, as `SystemAccess` last read them.
 private struct TweakPermissions: Equatable {
     var accessibility: Bool
     var screenRecording: Bool
     /// The Finder menu's extension, which can be turned off in System Settings while the tweak stays on.
     var finderExtension: Bool
 
-    /// Until the page appears and asks.
-    static let assumed = TweakPermissions(accessibility: true, screenRecording: true, finderExtension: true)
-
-    static var current: TweakPermissions {
-        TweakPermissions(
-            accessibility: AXIsProcessTrusted(), screenRecording: CGPreflightScreenCaptureAccess(),
-            finderExtension: FinderExtension.isEnabled)
+    init(_ access: SystemAccess) {
+        accessibility = access.accessibility
+        screenRecording = access.screenRecording
+        finderExtension = access.finderExtension
     }
 }
 

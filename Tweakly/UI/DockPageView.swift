@@ -5,12 +5,8 @@ import WindowSwitcherCore
 /// The Dock's page: the switch, the previews over its icons, and what a click on an icon does.
 struct DockPageView: View {
     @Bindable var settings: AppSettings
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = AXIsProcessTrusted()
-    /// Asked as the page appears, not in the initial value, which SwiftUI works out again each time the window's content
-    /// is rebuilt: the question takes 12 to 37 ms.
-    @State private var hasScreenRecording = true
-    @State private var isShowingPermissions = false
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
 
     var body: some View {
         Form {
@@ -22,22 +18,23 @@ struct DockPageView: View {
                     ),
                     isOn: isEnabled)
             }
-            if settings.dockEnabled, !hasAccessibility || needsScreenRecording {
+            if settings.dockEnabled, !access.accessibility || needsScreenRecording || restartsForPictures {
                 Section {
-                    if !hasAccessibility {
-                        MissingPermissionRow(
+                    if !access.accessibility {
+                        MissingAccessRow(
                             title: Text("Accessibility"),
                             detail: Text("Off until Accessibility is allowed. The Dock works as usual until then."),
-                            ask: SystemPermission.accessibility.ask)
+                            open: { router.open(.permissions) })
                     }
                     if needsScreenRecording {
-                        MissingPermissionRow(
+                        MissingAccessRow(
                             title: Text("Screen & System Audio Recording"),
                             detail: Text("Without Screen Recording the previews show app icons and window titles."),
-                            ask: SystemPermission.screenRecording.ask)
+                            open: { router.open(.permissions) })
                     }
-                } footer: {
-                    PermissionAdvice()
+                    if restartsForPictures {
+                        RestartForPicturesRow()
+                    }
                 }
             }
             Section {
@@ -78,33 +75,18 @@ struct DockPageView: View {
             }
             .disabled(!settings.dockEnabled)
             .sectionActions {
-                Button("Permissions…") { isShowingPermissions = true }
+                Button("Permissions…") { router.open(.permissions) }
             }
         }
         .formStyle(.grouped)
-        .onAppear { hasScreenRecording = CGPreflightScreenCaptureAccess() }
-        .sheet(isPresented: $isShowingPermissions) {
-            DetailsSheet(height: 300) {
-                Section("Permissions") {
-                    PermissionRow(
-                        title: "Accessibility",
-                        detail: "To hear which Dock icon the pointer is on, and to switch to or minimize windows.",
-                        isGranted: hasAccessibility, ask: SystemPermission.accessibility.ask)
-                    PermissionRow(
-                        title: "Screen & System Audio Recording",
-                        detail:
-                            "To show what each window looks like. macOS lights its recording indicator for a few seconds after a preview opens.",
-                        isGranted: hasScreenRecording, ask: SystemPermission.screenRecording.ask)
-                }
-            }
-        }
-        .pollingPermissions(
-            whileVisible: isWindowVisible && (settings.dockEnabled || isShowingPermissions),
-            every: isShowingPermissions || !hasAccessibility || needsScreenRecording ? 1 : 5, refreshPermissions)
     }
 
     private var needsScreenRecording: Bool {
-        settings.dockTuning.showsPanel && !hasScreenRecording
+        settings.dockTuning.showsPanel && !access.screenRecording
+    }
+
+    private var restartsForPictures: Bool {
+        access.screenRecordingArrived && settings.dockTuning.showsPanel
     }
 
     /// Permissions are asked for at the moment the feature is turned on, one at a time.
@@ -113,13 +95,7 @@ struct DockPageView: View {
             get: { settings.dockEnabled },
             set: { isOn in
                 settings.dockEnabled = isOn
-                guard isOn else { return }
-                refreshPermissions()
-                if !hasAccessibility {
-                    SystemPermission.accessibility.ask()
-                } else if needsScreenRecording {
-                    SystemPermission.screenRecording.ask()
-                }
+                if isOn { access.askOnTurningOn(screenRecording: settings.dockTuning.showsPanel) }
             })
     }
 
@@ -128,19 +104,7 @@ struct DockPageView: View {
             get: { settings.dockTuning.showsPanel },
             set: { isOn in
                 settings.dockTuning.showsPanel = isOn
-                if isOn, needsScreenRecording { SystemPermission.screenRecording.ask() }
+                if isOn { access.askOnTurningOn(accessibility: false, screenRecording: true) }
             })
-    }
-
-    private func refreshPermissions() {
-        let accessibility = AXIsProcessTrusted()
-        let screenRecording = CGPreflightScreenCaptureAccess()
-        let accessibilityArrived = accessibility && !hasAccessibility
-        guard accessibility != hasAccessibility || screenRecording != hasScreenRecording else { return }
-        hasAccessibility = accessibility
-        hasScreenRecording = screenRecording
-        // The agent goes by its own check, and this tells it the moment to make that check.
-        ProcessEvents.post(.settingsChanged)
-        if accessibilityArrived, settings.dockEnabled, needsScreenRecording { SystemPermission.screenRecording.ask() }
     }
 }

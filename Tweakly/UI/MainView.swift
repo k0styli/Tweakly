@@ -19,6 +19,7 @@ enum MainPage: Hashable, Identifiable {
     case uninstaller
     case volumeMixer
     case settings
+    case permissions
     case about
 
     #if TWEAKLY_AUTOMATION
@@ -39,6 +40,7 @@ enum MainPage: Hashable, Identifiable {
             case "uninstaller": self = .uninstaller
             case "volumeMixer": self = .volumeMixer
             case "settings": self = .settings
+            case "permissions": self = .permissions
             case "about": self = .about
             default:
                 guard let kind = MetricKind(rawValue: rawValue) else { return nil }
@@ -64,6 +66,7 @@ enum MainPage: Hashable, Identifiable {
         case .uninstaller: "uninstaller"
         case .volumeMixer: "volumeMixer"
         case .settings: "settings"
+        case .permissions: "permissions"
         case .about: "about"
         }
     }
@@ -85,6 +88,7 @@ enum MainPage: Hashable, Identifiable {
         case .uninstaller: String(localized: "App Uninstaller")
         case .volumeMixer: String(localized: "Volume Mixer")
         case .settings: String(localized: "Settings")
+        case .permissions: String(localized: "Permissions")
         case .about: String(localized: "About")
         }
     }
@@ -106,6 +110,7 @@ enum MainPage: Hashable, Identifiable {
         case .uninstaller: "trash"
         case .volumeMixer: "slider.vertical.3"
         case .settings: "gearshape"
+        case .permissions: "hand.raised"
         case .about: "info.circle"
         }
     }
@@ -222,6 +227,15 @@ enum MainPage: Hashable, Identifiable {
                 String(localized: "Menu Bar Labels"), String(localized: "Appearance"), String(localized: "App Theme"),
                 String(localized: "Dock Icon"),
             ]
+        case .permissions:
+            [
+                String(localized: "Privacy & Security"), String(localized: "Accessibility"),
+                String(localized: "Screen & System Audio Recording"), String(localized: "System Audio Recording Only"),
+                String(localized: "Full Disk Access"), String(localized: "Files & Folders"),
+                String(localized: "Login Items & Extensions"), String(localized: "Open at Login"),
+                String(localized: "Finder Extension"), String(localized: "Tweakly Helper"),
+                String(localized: "Administrator Rights"),
+            ]
         case .about:
             ["Tweakly", String(localized: "Version"), String(localized: "Build"), String(localized: "Quit Tweakly")]
         }
@@ -294,6 +308,7 @@ struct MainView: View {
     let taskManager: TaskManagerModel
     let uninstaller: UninstallerModel
     let wallpapers: WallpaperLibraryModel
+    let access: SystemAccess
 
     var body: some View {
         // The sidebar hides with the system's own button, as in Finder, so the task manager can have the whole window.
@@ -308,7 +323,7 @@ struct MainView: View {
             switch router.page {
             case .home:
                 HomeView(
-                    data: data, settings: settings, isWindowVisible: router.isWindowVisible, open: router.open)
+                    data: data, settings: settings, open: router.open)
             case .simpleView:
                 SimpleViewPageView(settings: settings)
             case .metric(let kind):
@@ -318,20 +333,19 @@ struct MainView: View {
                 // Each metric's page starts from its own state, rather than inheriting the last one's.
                 .id(kind)
             case .windowSwitcher:
-                WindowSwitcherPageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                WindowSwitcherPageView(settings: settings)
             case .dock:
-                DockPageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                DockPageView(settings: settings)
             case .mouse:
-                MousePageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                MousePageView(settings: settings)
             case .finderCut:
-                FinderCutPageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                FinderCutPageView(settings: settings)
             case .finderMenu:
-                FinderMenuPageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                FinderMenuPageView(settings: settings)
             case .keyboardCleaning:
-                KeyboardCleaningPageView(
-                    settings: settings, cleaning: cleaning, isWindowVisible: router.isWindowVisible)
+                KeyboardCleaningPageView(settings: settings, cleaning: cleaning)
             case .languageSwitch:
-                LanguageSwitchPageView(settings: settings, isWindowVisible: router.isWindowVisible)
+                LanguageSwitchPageView(settings: settings)
             case .liveWallpaper:
                 LiveWallpaperPageView(
                     settings: settings, library: wallpapers, searchRequests: router.toolbarSearchRequests)
@@ -342,15 +356,19 @@ struct MainView: View {
                     model: taskManager, settings: settings, searchRequests: router.toolbarSearchRequests)
             case .uninstaller:
                 UninstallerPageView(
-                    model: uninstaller, isWindowVisible: router.isWindowVisible,
+                    model: uninstaller,
                     searchRequests: router.toolbarSearchRequests)
             case .settings:
                 SettingsView(settings: settings)
+            case .permissions:
+                PermissionsPageView(access: access, settings: settings)
             case .about:
                 AboutView()
             }
         }
         .navigationTitle(router.page.title)
+        .environment(access)
+        .environment(router)
         .sheet(isPresented: $router.isWelcomeShown) {
             WelcomeView(router: router, settings: settings)
         }
@@ -399,7 +417,7 @@ private struct Sidebar: View {
             PageGroup(
                 title: String(localized: "Tweaks"),
                 pages: [.windowSwitcher, .dock, .mouse, .finderCut, .finderMenu, .languageSwitch]),
-            PageGroup(title: String(localized: "Other"), pages: [.settings, .about]),
+            PageGroup(title: String(localized: "Other"), pages: [.settings, .permissions, .about]),
         ]
     }
 

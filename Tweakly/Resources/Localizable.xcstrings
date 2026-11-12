@@ -1617,6 +1617,34 @@
         }
       }
     },
+    "Administrator Rights": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administratorrechte"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理者権限"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Права администратора"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理员权限"
+          }
+        }
+      }
+    },
     "Advanced…": {
       "localizations": {
         "de": {
@@ -1950,6 +1978,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "与Windows相同"
+          }
+        }
+      }
+    },
+    "Asked on First Use": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abfrage bei erster Verwendung"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "初回使用時に確認"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запрос при первом использовании"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次使用时询问"
           }
         }
       }
@@ -4634,6 +4690,34 @@
         }
       }
     },
+    "Files & Folders": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien & Ordner"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルとフォルダ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файлы и папки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文件与文件夹"
+          }
+        }
+      }
+    },
     "Find Any Setting": {
       "localizations": {
         "de": {
@@ -4686,6 +4770,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "访达无法让已剪切的文件变暗显示，因此会用一个小标签显示剪切了多少个文件。"
+          }
+        }
+      }
+    },
+    "Finds the data of apps from the App Store. Optional.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Findet die Daten von Apps aus dem App Store. Optional."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Storeのアプリのデータを見つけます。任意です。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Находит данные приложений из App Store. Необязательно."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查找来自App Store的App的数据。可选。"
           }
         }
       }
@@ -4882,6 +4994,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@至%@"
+          }
+        }
+      }
+    },
+    "Full Disk Access": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Festplattenvollzugriff"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フルディスクアクセス"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступ к диску"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完全磁盘访问权限"
           }
         }
       }
@@ -5362,6 +5502,62 @@
         }
       }
     },
+    "Installed": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installiert"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストール済み"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Установлен"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已安装"
+          }
+        }
+      }
+    },
+    "Installed once, with an administrator’s password.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird einmal mit dem Passwort eines Administrators installiert."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理者のパスワードで一度だけインストールします。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Устанавливается один раз, с паролем администратора."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用管理员密码安装一次。"
+          }
+        }
+      }
+    },
     "Install…": {
       "localizations": {
         "de": {
@@ -5386,6 +5582,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "安装…"
+          }
+        }
+      }
+    },
+    "It lets Task Manager show and quit other users’ processes.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Damit zeigt der Task-Manager die Prozesse anderer Benutzer und beendet sie."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タスクマネージャで他のユーザのプロセスを表示・終了できるようにします。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "С ним диспетчер задач показывает и завершает процессы других пользователей."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "让任务管理器显示和结束其他用户的进程。"
+          }
+        }
+      }
+    },
+    "It sets the speed of the fans and lets Task Manager show and quit other users’ processes.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es stellt die Drehzahl der Lüfter ein, und damit zeigt der Task-Manager die Prozesse anderer Benutzer und beendet sie."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファンの回転数を設定し、タスクマネージャで他のユーザのプロセスを表示・終了できるようにします。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Он задаёт скорость кулеров, а с ним диспетчер задач показывает и завершает процессы других пользователей."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "它设置风扇转速，并让任务管理器显示和结束其他用户的进程。"
           }
         }
       }
@@ -6327,6 +6579,34 @@
         }
       }
     },
+    "New File on the desktop and in Documents and Downloads.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Neue Datei“ auf dem Schreibtisch und in „Dokumente“ und „Downloads“."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デスクトップ、“書類”、“ダウンロード”での“新規ファイル”。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Новый файл» на рабочем столе, в «Документах» и «Загрузках»."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在桌面、“文稿”和“下载”中“新建文件”。"
+          }
+        }
+      }
+    },
     "No acceleration, the wheel as on Windows, side buttons": {
       "localizations": {
         "de": {
@@ -6351,6 +6631,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "无加速、类似Windows的滚轮、侧边按钮"
+          }
+        }
+      }
+    },
+    "Not Allowed": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht erlaubt"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "許可されていません"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не разрешено"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未允许"
           }
         }
       }
@@ -6803,6 +7111,34 @@
         }
       }
     },
+    "Pictures of windows. Without it, the tiles show app icons.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bilder der Fenster. Ohne sie zeigen die Kacheln App-Symbole."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウインドウの画像。許可がない場合、タイルにはアプリのアイコンが表示されます。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снимки окон. Без него на плитках значки приложений."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "窗口画面。没有此权限时，缩略图显示App图标。"
+          }
+        }
+      }
+    },
     "Pointer": {
       "localizations": {
         "de": {
@@ -7107,6 +7443,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "上一个输入法"
+          }
+        }
+      }
+    },
+    "Privacy & Security": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenschutz & Sicherheit"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プライバシーとセキュリティ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Конфиденциальность и безопасность"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私与安全"
           }
         }
       }
@@ -9375,34 +9739,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "到"
-          }
-        }
-      }
-    },
-    "To notice a press of Fn. Tweakly sees only the modifier keys, never what you type.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um das Drücken von Fn zu erkennen. Tweakly sieht nur die Sondertasten, nie, was du eingibst."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fnキーが押されたことを検知するためです。Tweaklyが認識するのは修飾キーのみで、入力内容を見ることはありません。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы замечать нажатие Fn. Tweakly видит только клавиши-модификаторы и никогда не видит, что вы печатаете."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于检测是否按下了Fn键。Tweakly只能看到修饰键，绝不会看到你输入的内容。"
           }
         }
       }
@@ -12985,6 +13321,34 @@
         }
       }
     },
+    "Opens Permissions": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnet „Berechtigungen“"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“アクセス権”を開きます"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывает «Разрешения»"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开“权限”"
+          }
+        }
+      }
+    },
     "Same as System": {
       "localizations": {
         "de": {
@@ -13769,90 +14133,6 @@
         }
       }
     },
-    "To show what each window looks like. macOS lights its recording indicator for a few seconds after the panel opens.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um zu zeigen, wie jedes Fenster aussieht. Nach dem Öffnen der Leiste schaltet macOS einige Sekunden lang die Aufnahmeanzeige ein."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "各ウインドウの外観を表示するためです。パネルが開いてから数秒間、macOSの収録インジケータが点灯します。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы показывать, как выглядит каждое окно. После открытия панели macOS на несколько секунд зажигает индикатор записи."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于显示每个窗口的样子。面板打开后，macOS的录制指示器会亮起几秒钟。"
-          }
-        }
-      }
-    },
-    "To take over Command-Tab and bring the chosen window forward.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um Befehl-Tab zu übernehmen und das gewählte Fenster nach vorne zu holen."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Command＋Tabの操作を引き継ぎ、選択したウインドウを前面に表示するためです。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы перехватывать Command-Tab и показывать выбранное окно поверх остальных."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于接管Command-Tab并将所选窗口移到最前面。"
-          }
-        }
-      }
-    },
-    "To tell files from text in Finder and to give it the command to move files.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um im Finder Dateien von Text zu unterscheiden und ihm den Befehl zum Bewegen von Dateien zu geben."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finderでファイルとテキストを区別し、ファイルを移動するコマンドをFinderに送るためです。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы отличать файлы от текста в Finder и давать ему команду на перемещение."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于在访达中区分文件和文本，并指示访达移动文件。"
-          }
-        }
-      }
-    },
     "To turn the keyboard off for the time you choose.": {
       "localizations": {
         "de": {
@@ -14049,6 +14329,34 @@
         }
       }
     },
+    "Turned on and waiting for it: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingeschaltet und warten darauf: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オンになっていて許可を待っている機能：%@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включены и ждут: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已打开并在等待此项：%@"
+          }
+        }
+      }
+    },
     "Turns back on in %@": {
       "localizations": {
         "de": {
@@ -14107,6 +14415,34 @@
     },
     "Tweakly": {
       "shouldTranslate": false
+    },
+    "Tweakly needs to install a helper with administrator rights.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly muss ein Hilfsprogramm mit Administratorrechten installieren."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweaklyは管理者権限を持つヘルパーをインストールする必要があります。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly нужно установить помощника с правами администратора."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly需要安装具有管理员权限的辅助程序。"
+          }
+        }
+      }
     },
     "Tweaks": {
       "localizations": {
@@ -18376,6 +18712,62 @@
         }
       }
     },
+    "Starts Tweakly in the menu bar when you log in.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startet Tweakly in der Menüleiste, wenn du dich anmeldest."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン時にメニューバーでTweaklyを起動します。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускает Tweakly в строке меню при входе в систему."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录时在菜单栏中启动Tweakly。"
+          }
+        }
+      }
+    },
+    "System Audio Recording Only": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur Aufnahme von Systemaudio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムオーディオ録音のみ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только запись системного звука"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅系统录音"
+          }
+        }
+      }
+    },
     "Task Manager": {
       "localizations": {
         "de": {
@@ -19056,6 +19448,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "无法安装辅助程序。"
+          }
+        }
+      }
+    },
+    "Tweakly Helper": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly-Hilfsprogramm"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweaklyヘルパー"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Помощник Tweakly"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly辅助程序"
           }
         }
       }
@@ -24007,6 +24427,34 @@
         }
       }
     },
+    "The volume of each app.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine eigene Lautstärke für jede App."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリごとの音量。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Своя громкость у каждого приложения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每个App的音量。"
+          }
+        }
+      }
+    },
     "Unmute": {
       "localizations": {
         "de": {
@@ -24651,62 +25099,6 @@
         }
       }
     },
-    "To hear which Dock icon the pointer is on, and to switch to or minimize windows.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um zu erkennen, auf welchem Dock-Symbol sich der Zeiger befindet, und um zu Fenstern zu wechseln oder sie im Dock abzulegen."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ポインタがどのDockアイコン上にあるかを検知し、ウインドウを切り替えたりしまったりするためです。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы знать, на каком значке Dock указатель, и переключать или сворачивать окна."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于获知指针位于哪个程序坞图标上，以及切换到窗口或将窗口最小化。"
-          }
-        }
-      }
-    },
-    "To show what each window looks like. macOS lights its recording indicator for a few seconds after a preview opens.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Um zu zeigen, wie jedes Fenster aussieht. Nach dem Öffnen einer Vorschau schaltet macOS einige Sekunden lang die Aufnahmeanzeige ein."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "各ウインドウの外観を表示するためです。プレビューが開いてから数秒間、macOSの収録インジケータが点灯します。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Чтобы показывать, как выглядит каждое окно. После открытия превью macOS на несколько секунд зажигает индикатор записи."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "用于显示每个窗口的样子。预览打开后，macOS的录制指示器会亮起几秒钟。"
-          }
-        }
-      }
-    },
     "Windows over each Dock icon, and a click to minimize": {
       "localizations": {
         "de": {
@@ -25127,34 +25519,6 @@
         }
       }
     },
-    "Finder Extension…": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finder-Erweiterung …"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finder機能拡張…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Расширение Finder…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "访达扩展…"
-          }
-        }
-      }
-    },
     "Turn On": {
       "localizations": {
         "de": {
@@ -25211,34 +25575,6 @@
         }
       }
     },
-    "Shows the items in Finder. The switch at the top turns it on and off.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zeigt die Objekte im Finder. Der Schalter oben schaltet sie ein und aus."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finderに項目を表示します。オン/オフはページ上部のスイッチで切り替えます。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показывает пункты в Finder. Его включает и выключает переключатель вверху страницы."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在访达中显示这些项目。页面顶部的开关可将其打开或关闭。"
-          }
-        }
-      }
-    },
     "Login Items & Extensions": {
       "localizations": {
         "de": {
@@ -25267,86 +25603,30 @@
         }
       }
     },
-    "Where System Settings lists it.": {
+    "What macOS allows Tweakly to do. Tweakly asks for a permission only when you turn on a feature that needs it.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wo sie in den Systemeinstellungen aufgeführt ist."
+            "value": "Was macOS Tweakly erlaubt. Tweakly fragt nach einer Berechtigung nur, wenn du eine Funktion einschaltest, die sie braucht."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "“システム設定”でこの機能拡張が表示される場所です。"
+            "value": "macOSがTweaklyに許可していること。Tweaklyは、許可が必要な機能をオンにしたときにだけ許可を求めます。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Где оно в Системных настройках."
+            "value": "Что macOS разрешает Tweakly. Tweakly просит разрешение, только когда вы включаете функцию, которой оно нужно."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "它在系统设置中的位置。"
-          }
-        }
-      }
-    },
-    "Show…": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Anzeigen …"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "表示…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показать…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "显示…"
-          }
-        }
-      }
-    },
-    "The first new file on the desktop or in Documents or Downloads makes macOS ask whether Tweakly may use that folder.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bei der ersten neuen Datei auf dem Schreibtisch oder in „Dokumente“ oder „Downloads“ fragt macOS, ob Tweakly diesen Ordner verwenden darf."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "デスクトップ、“書類”フォルダ、または“ダウンロード”フォルダに初めて新規ファイルを作成すると、Tweaklyにそのフォルダの使用を許可するかどうかをmacOSが確認します。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Перед первым новым файлом на рабочем столе, в Документах или Загрузках macOS спросит, можно ли Tweakly работать с этой папкой."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "首次在桌面、“文稿”或“下载”中新建文件时，macOS会询问是否允许Tweakly使用该文件夹。"
+            "value": "macOS允许Tweakly执行的操作。只有在你打开需要某项权限的功能时，Tweakly才会请求该权限。"
           }
         }
       }

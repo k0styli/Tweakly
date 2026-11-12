@@ -16,6 +16,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     let taskManager = TaskManagerModel()
     let uninstaller = UninstallerModel()
     let wallpapers = WallpaperLibraryModel()
+    private let access = SystemAccess()
     private let onClose: () -> Void
     /// Every way the window comes back goes through `show`, so the process knows it is open again.
     var onShow: (() -> Void)?
@@ -34,7 +35,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         let host = NSHostingController(
             rootView: MainView(
                 router: router, settings: settings, data: feed.data, cleaning: keyboardCleaning,
-                taskManager: taskManager, uninstaller: uninstaller, wallpapers: wallpapers))
+                taskManager: taskManager, uninstaller: uninstaller, wallpapers: wallpapers, access: access))
         host.sceneBridgingOptions = [.title, .toolbars]
         // The window's size belongs to the person using it, not to the size of the current page.
         host.sizingOptions = []

@@ -8,11 +8,12 @@ import notify
 /// popover, and what the popover offers. Laid out as System Settings lays out one app's settings: a group per app.
 struct VolumeMixerPageView: View {
     @Bindable var settings: AppSettings
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
     @State private var rules = AudioRuleStore.load()
     /// Every app shown since the page appeared. An app dragged to 100 % loses its rule, and its group must not vanish
     /// from under the pointer.
     @State private var shownApps: [String] = []
-    @State private var isPermitted = AudioRuleStore.isPermitted
     @State private var hasStopped = AudioRuleStore.hasStopped
     @State private var outputs: [AudioDevice] = []
     @State private var tokens: [Int32] = []
@@ -40,13 +41,13 @@ struct VolumeMixerPageView: View {
                             .accessibilityHidden(true)
                     }
                 }
-            } else if settings.volumeMixerEnabled, !isPermitted {
+            } else if settings.volumeMixerEnabled, access.audioRecording == .notAllowed {
                 Section {
-                    MissingPermissionRow(
+                    MissingAccessRow(
                         title: Text("System Audio Recording"),
                         detail: Text(
                             "macOS changes an app’s volume only through it. Until then apps play as they are."),
-                        ask: openPrivacy)
+                        open: { router.open(.permissions) })
                 }
             }
             if shownApps.isEmpty {
@@ -143,12 +144,7 @@ struct VolumeMixerPageView: View {
         if stored != rules { rules = stored }
         let added = stored.rules.keys.filter { !shownApps.contains($0) }
         if !added.isEmpty { shownApps += added }
-        isPermitted = AudioRuleStore.isPermitted
         hasStopped = AudioRuleStore.hasStopped
-    }
-
-    private func openPrivacy() {
-        if let url = URL(string: AudioRuleStore.privacySettingsURL) { NSWorkspace.shared.open(url) }
     }
 }
 

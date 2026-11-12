@@ -5,11 +5,10 @@ import SwiftUI
 /// system's label at the cursor.
 struct LanguageSwitchPageView: View {
     @Bindable var settings: AppSettings
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = AXIsProcessTrusted()
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
     @State private var globeKeyHasAction = SystemTextInput.globeKeyHasAction
     @State private var showsLanguageAtCursor = SystemTextInput.showsLanguageAtCursor
-    @State private var isShowingPermission = false
 
     var body: some View {
         Form {
@@ -19,14 +18,12 @@ struct LanguageSwitchPageView: View {
                     detail: Text("A short press of Fn turns on the previous input source at once, without the menu."),
                     isOn: isEnabled)
             }
-            if settings.languageSwitchEnabled, !hasAccessibility {
+            if settings.languageSwitchEnabled, !access.accessibility {
                 Section {
-                    MissingPermissionRow(
+                    MissingAccessRow(
                         title: Text("Accessibility"),
                         detail: Text("Off until Accessibility is allowed. Fn works as usual until then."),
-                        ask: SystemPermission.accessibility.ask)
-                } footer: {
-                    PermissionAdvice()
+                        open: { router.open(.permissions) })
                 }
             }
             if settings.languageSwitchEnabled, globeKeyHasAction {
@@ -64,18 +61,14 @@ struct LanguageSwitchPageView: View {
                 }
             }
             .sectionActions {
-                Button("Permissions…") { isShowingPermission = true }
+                Button("Permissions…") { router.open(.permissions) }
             }
         }
         .formStyle(.grouped)
-        .sheet(isPresented: $isShowingPermission) {
-            PermissionSheet(
-                detail: "To notice a press of Fn. Tweakly sees only the modifier keys, never what you type.",
-                isGranted: hasAccessibility)
+        // Keyboard settings are changed in System Settings, and coming back from there makes this app active again.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refresh()
         }
-        .pollingPermissions(
-            whileVisible: isWindowVisible && (settings.languageSwitchEnabled || isShowingPermission),
-            every: isShowingPermission || !hasAccessibility || globeKeyHasAction ? 1 : 5, refresh)
     }
 
     /// The permission is asked for at the moment the feature is turned on.
@@ -84,7 +77,7 @@ struct LanguageSwitchPageView: View {
             get: { settings.languageSwitchEnabled },
             set: { isOn in
                 settings.languageSwitchEnabled = isOn
-                if isOn, !AXIsProcessTrusted() { SystemPermission.accessibility.ask() }
+                if isOn { access.askOnTurningOn(screenRecording: false) }
                 if isOn { globeKeyHasAction = SystemTextInput.globeKeyHasAction }
             })
     }
@@ -102,11 +95,6 @@ struct LanguageSwitchPageView: View {
     private func refresh() {
         globeKeyHasAction = SystemTextInput.globeKeyHasAction
         showsLanguageAtCursor = SystemTextInput.showsLanguageAtCursor
-        let accessibility = AXIsProcessTrusted()
-        guard accessibility != hasAccessibility else { return }
-        hasAccessibility = accessibility
-        // The agent goes by its own check, and this tells it the moment to make that check.
-        ProcessEvents.post(.settingsChanged)
     }
 }
 

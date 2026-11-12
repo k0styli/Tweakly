@@ -27,47 +27,49 @@ enum SystemPermission: String {
     }
 }
 
-/// One permission on a tweak's page: what it is for, and either that it is allowed or a way to allow it.
-struct PermissionRow: View {
-    let title: LocalizedStringKey
-    let detail: LocalizedStringKey
-    let isGranted: Bool
-    let ask: () -> Void
+/// A permission a feature that is on cannot work without, on that feature's page. It leads to the Permissions page,
+/// the one place where every permission is given, as a row of Privacy & Security leads to its own list. It stays out of
+/// sight while nothing is missing.
+struct MissingAccessRow: View {
+    let title: Text
+    let detail: Text
+    var status = Text("Not Allowed")
+    let open: () -> Void
 
     var body: some View {
-        LabeledContent {
-            if isGranted {
-                Label("Allowed", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            } else {
-                Button("Allow…", action: ask)
+        Button(action: open) {
+            LabeledContent {
+                HStack(spacing: 6) {
+                    status
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+            } label: {
+                Label {
+                    title
+                    detail
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .symbolRenderingMode(.multicolor)
+                        .frame(width: LinkRow<EmptyView>.symbolWidth)
+                        .accessibilityHidden(true)
+                }
             }
-        } label: {
-            Text(title)
-            Text(detail)
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Opens Permissions"))
     }
 }
 
-/// A permission a feature that is on cannot work without. It stays out of sight until then, as System Settings names
-/// what is missing only where something does not work because of it.
-struct MissingPermissionRow: View {
-    let title: Text
-    let detail: Text
-    let ask: () -> Void
-
+/// Screen Recording given while Tweakly runs reaches window pictures only after a restart, as System Settings itself
+/// says when the switch is turned on.
+struct RestartForPicturesRow: View {
     var body: some View {
-        LabeledContent {
-            Button("Allow…", action: ask)
-        } label: {
-            Label {
-                title
-                detail
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .symbolRenderingMode(.multicolor)
-                    .accessibilityHidden(true)
-            }
+        LabeledContent("Previews appear after a restart") {
+            Button("Restart Now") { WindowProcess.relaunchAll() }
         }
     }
 }
@@ -77,41 +79,5 @@ struct MissingPermissionRow: View {
 struct PermissionAdvice: View {
     var body: some View {
         Text("If Tweakly already looks on in System Settings, turn it off and on again.")
-    }
-}
-
-/// The one permission of a page with nothing else to put in its Advanced sheet.
-struct PermissionSheet: View {
-    private static var height: CGFloat { 140 }
-
-    let detail: LocalizedStringKey
-    let isGranted: Bool
-
-    var body: some View {
-        DetailsSheet(height: Self.height) {
-            Section("Permissions") {
-                PermissionRow(
-                    title: "Accessibility", detail: detail, isGranted: isGranted,
-                    ask: SystemPermission.accessibility.ask)
-            }
-        }
-    }
-}
-
-extension View {
-    /// There is no public event for a permission changing, so a page asks for as long as it can be seen and something
-    /// on it depends on the answer. Coming back into view asks at once.
-    /// - Parameter seconds: how often. A person waiting for a permission to arrive wants to see it at once, while one
-    ///   that is there only needs noticing if it goes.
-    func pollingPermissions(
-        whileVisible isVisible: Bool, every seconds: Int = 1, _ refresh: @escaping () -> Void
-    ) -> some View {
-        task(id: isVisible ? seconds : 0) {
-            guard isVisible else { return }
-            while !Task.isCancelled {
-                refresh()
-                try? await Task.sleep(for: .seconds(seconds), tolerance: .milliseconds(seconds * 200))
-            }
-        }
     }
 }

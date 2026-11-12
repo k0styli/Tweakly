@@ -8,8 +8,8 @@ import UninstallerCore
 /// The table is AppKit's, as the task manager's is, see `AppsTableController`; the page around it is SwiftUI.
 struct UninstallerPageView: View {
     let model: UninstallerModel
-    let isWindowVisible: Bool
     let searchRequests: Int
+    @Environment(SystemAccess.self) private var access
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
@@ -41,8 +41,8 @@ struct UninstallerPageView: View {
             .sheet(item: $model.plan) { plan in
                 RemovalSheet(plan: plan, model: model)
             }
-            .pollingPermissions(
-                whileVisible: isWindowVisible && model.needsFullDiskAccess, every: 2, model.refreshFullDiskAccess)
+            // Full Disk Access is given in System Settings: tccd announces it, and coming back makes this app active.
+            .onChange(of: access.fullDiskAccess) { model.refreshFullDiskAccess() }
     }
 }
 

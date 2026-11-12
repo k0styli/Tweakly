@@ -1,5 +1,6 @@
 import AppKit
 import WindowSwitcherCore
+import notify
 import os
 
 /// The pictures of windows that Command-Tab and the Dock's previews share, so a window taken for one shows at once in
@@ -23,9 +24,9 @@ final class WindowPictureStore {
     }
 
     /// Whether Screen Recording is allowed. Asking takes 12 to 37 ms on macOS 27.2, every time, which a panel that must
-    /// appear with the Dock's own bubble cannot wait for. So it is asked when the store starts and on `refreshPermission`,
-    /// which follows every change of settings, as that is how the pages report a permission that changed. Taken away
-    /// in between, captures just give nothing and the tiles keep their icons.
+    /// appear with the Dock's own bubble cannot wait for. So it is asked when the store starts, when tccd announces that
+    /// some permission changed, and on `refreshPermission`, which follows every change of settings. Taken away in
+    /// between, captures just give nothing and the tiles keep their icons.
     private(set) var mayCapture = CGPreflightScreenCaptureAccess()
 
     private var shelf = Shelf()
@@ -55,6 +56,7 @@ final class WindowPictureStore {
     private var forgetSharp: DispatchWorkItem?
     private var memoryPressure: (any DispatchSourceMemoryPressure)?
     private var sleepObserver: NSObjectProtocol?
+    private var permissionToken: Int32 = NOTIFY_TOKEN_INVALID
 
     init() {
         let pressure = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
@@ -70,6 +72,11 @@ final class WindowPictureStore {
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.forgetSharpPictures() }
+        }
+        // Given or taken away in System Settings while the window is closed, which no page is there to report. tccd
+        // posts this for every app's change of any privacy permission, which is rare.
+        notify_register_dispatch("com.apple.tcc.access.changed", &permissionToken, .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshPermission() }
         }
     }
 
@@ -89,6 +96,8 @@ final class WindowPictureStore {
         memoryPressure = nil
         if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
         sleepObserver = nil
+        if permissionToken != NOTIFY_TOKEN_INVALID { notify_cancel(permissionToken) }
+        permissionToken = NOTIFY_TOKEN_INVALID
     }
 
     /// Takes these windows, except any already being taken, and hands each picture to `deliver` as it arrives, or nil

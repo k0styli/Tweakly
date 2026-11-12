@@ -7,9 +7,8 @@ import SwiftUI
 struct KeyboardCleaningPageView: View {
     @Bindable var settings: AppSettings
     let cleaning: KeyboardCleaningController
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = AXIsProcessTrusted()
-    @State private var isShowingPermission = false
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
 
     var body: some View {
         Form {
@@ -17,7 +16,7 @@ struct KeyboardCleaningPageView: View {
                 LabeledContent {
                     Button("Start Cleaning", action: start)
                         .buttonStyle(.borderedProminent)
-                        .disabled(!hasAccessibility || cleaning.isActive)
+                        .disabled(!access.accessibility || cleaning.isActive)
                 } label: {
                     FeatureLabel(
                         symbol: MainPage.keyboardCleaning.symbol, title: Text("Keyboard Cleaning"),
@@ -30,14 +29,12 @@ struct KeyboardCleaningPageView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            if !hasAccessibility {
+            if !access.accessibility {
                 Section {
-                    MissingPermissionRow(
+                    MissingAccessRow(
                         title: Text("Accessibility"),
                         detail: Text("To turn the keyboard off for the time you choose."),
-                        ask: SystemPermission.accessibility.ask)
-                } footer: {
-                    PermissionAdvice()
+                        open: { router.open(.permissions) })
                 }
             }
             Section {
@@ -58,17 +55,10 @@ struct KeyboardCleaningPageView: View {
                     detail: Text("The power button and Touch ID cannot be turned off, so try not to press them."))
             }
             .sectionActions {
-                Button("Permissions…") { isShowingPermission = true }
+                Button("Permissions…") { router.open(.permissions) }
             }
         }
         .formStyle(.grouped)
-        .sheet(isPresented: $isShowingPermission) {
-            PermissionSheet(
-                detail: "To turn the keyboard off for the time you choose.", isGranted: hasAccessibility)
-        }
-        .pollingPermissions(whileVisible: isWindowVisible, every: hasAccessibility && !isShowingPermission ? 5 : 1) {
-            hasAccessibility = AXIsProcessTrusted()
-        }
     }
 
     private var length: Binding<CleaningLength> {

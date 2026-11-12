@@ -46,9 +46,4 @@ nonisolated enum FinderExtension {
             }
         }
     }
-
-    /// Where someone can see and change it themselves.
-    @MainActor static func showInSystemSettings() {
-        FIFinderSyncController.showExtensionManagementInterface()
-    }
 }

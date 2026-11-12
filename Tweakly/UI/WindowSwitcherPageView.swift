@@ -5,12 +5,8 @@ import WindowSwitcherCore
 /// The switcher's page: the switch, what a person notices about the panel, and below a button everything else.
 struct WindowSwitcherPageView: View {
     @Bindable var settings: AppSettings
-    let isWindowVisible: Bool
-    @State private var hasAccessibility = AXIsProcessTrusted()
-    /// Asked as the page appears, not in the initial value, which SwiftUI works out again each time the window's content
-    /// is rebuilt: the question takes 12 to 37 ms.
-    @State private var hasScreenRecording = true
-    @State private var screenRecordingArrivedNow = false
+    @Environment(SystemAccess.self) private var access
+    @Environment(MainRouter.self) private var router
     @State private var isShowingAdvanced = false
 
     var body: some View {
@@ -21,27 +17,25 @@ struct WindowSwitcherPageView: View {
                     detail: Text("Shows a preview of every window. Release Command to switch to the selected one."),
                     isOn: isEnabled)
             }
-            if settings.windowSwitcherEnabled, !hasAccessibility || needsScreenRecording || screenRecordingArrivedNow {
+            if settings.windowSwitcherEnabled,
+                !access.accessibility || needsScreenRecording || access.screenRecordingArrived
+            {
                 Section {
-                    if !hasAccessibility {
-                        MissingPermissionRow(
+                    if !access.accessibility {
+                        MissingAccessRow(
                             title: Text("Accessibility"),
                             detail: Text("Off until Accessibility is allowed. Command-Tab works as usual until then."),
-                            ask: SystemPermission.accessibility.ask)
+                            open: { router.open(.permissions) })
                     }
                     if needsScreenRecording {
-                        MissingPermissionRow(
+                        MissingAccessRow(
                             title: Text("Screen & System Audio Recording"),
                             detail: Text("Without Screen Recording the tiles show app icons instead of previews."),
-                            ask: SystemPermission.screenRecording.ask)
+                            open: { router.open(.permissions) })
                     }
-                    if screenRecordingArrivedNow {
-                        LabeledContent("Previews appear after a restart") {
-                            Button("Restart Now") { WindowProcess.relaunchAll() }
-                        }
+                    if access.screenRecordingArrived, settings.switcherTuning.showsPreviews {
+                        RestartForPicturesRow()
                     }
-                } footer: {
-                    if !hasAccessibility || needsScreenRecording { PermissionAdvice() }
                 }
             }
             SwitcherPanelSettings(tuning: $settings.switcherTuning)
@@ -53,19 +47,13 @@ struct WindowSwitcherPageView: View {
                 }
         }
         .formStyle(.grouped)
-        .onAppear { hasScreenRecording = CGPreflightScreenCaptureAccess() }
         .sheet(isPresented: $isShowingAdvanced) {
-            SwitcherAdvancedSheet(
-                settings: settings, hasAccessibility: hasAccessibility, hasScreenRecording: hasScreenRecording)
+            SwitcherAdvancedSheet(settings: settings)
         }
-        .pollingPermissions(
-            whileVisible: isWindowVisible && (settings.windowSwitcherEnabled || isShowingAdvanced),
-            every: isShowingAdvanced || !hasAccessibility || needsScreenRecording ? 1 : 5,
-            refreshPermissions)
     }
 
     private var needsScreenRecording: Bool {
-        settings.switcherTuning.showsPreviews && !hasScreenRecording
+        settings.switcherTuning.showsPreviews && !access.screenRecording
     }
 
     /// Permissions are asked for at the moment the feature is turned on, one at a time.
@@ -74,31 +62,12 @@ struct WindowSwitcherPageView: View {
             get: { settings.windowSwitcherEnabled },
             set: { isOn in
                 settings.windowSwitcherEnabled = isOn
-                guard isOn else { return }
-                refreshPermissions()
-                if !hasAccessibility {
-                    SystemPermission.accessibility.ask()
-                } else {
-                    askForScreenRecording()
-                }
+                if isOn { access.askOnTurningOn(screenRecording: settings.switcherTuning.showsPreviews) }
             })
     }
 
     private func askForScreenRecording() {
-        if needsScreenRecording { SystemPermission.screenRecording.ask() }
-    }
-
-    private func refreshPermissions() {
-        let accessibility = AXIsProcessTrusted()
-        let screenRecording = CGPreflightScreenCaptureAccess()
-        let accessibilityArrived = accessibility && !hasAccessibility
-        if screenRecording && !hasScreenRecording { screenRecordingArrivedNow = true }
-        guard accessibility != hasAccessibility || screenRecording != hasScreenRecording else { return }
-        hasAccessibility = accessibility
-        hasScreenRecording = screenRecording
-        // The agent goes by its own check, and this tells it the moment to make that check.
-        ProcessEvents.post(.settingsChanged)
-        if accessibilityArrived, settings.windowSwitcherEnabled { askForScreenRecording() }
+        access.askOnTurningOn(accessibility: false, screenRecording: true)
     }
 }
 
@@ -170,11 +139,9 @@ private struct SwitcherShownSettings: View {
     }
 }
 
-/// How the pictures are kept, and which permissions the switcher has. Few people will ever need any of it.
+/// How the pictures are kept. Few people will ever need any of it; the permissions are on their own page.
 private struct SwitcherAdvancedSheet: View {
     @Bindable var settings: AppSettings
-    let hasAccessibility: Bool
-    let hasScreenRecording: Bool
 
     var body: some View {
         DetailsSheet(
@@ -184,17 +151,6 @@ private struct SwitcherAdvancedSheet: View {
         ) {
             SwitcherPictureSettings(tuning: $settings.switcherTuning)
                 .disabled(!settings.windowSwitcherEnabled || !settings.switcherTuning.showsPreviews)
-            Section("Permissions") {
-                PermissionRow(
-                    title: "Accessibility",
-                    detail: "To take over Command-Tab and bring the chosen window forward.",
-                    isGranted: hasAccessibility, ask: SystemPermission.accessibility.ask)
-                PermissionRow(
-                    title: "Screen & System Audio Recording",
-                    detail:
-                        "To show what each window looks like. macOS lights its recording indicator for a few seconds after the panel opens.",
-                    isGranted: hasScreenRecording, ask: SystemPermission.screenRecording.ask)
-            }
         }
     }
 }

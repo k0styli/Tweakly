@@ -4,22 +4,21 @@ import SwiftUI
 /// What belongs to the app as a whole. Short enough that nothing needs moving elsewhere.
 struct SettingsView: View {
     @Bindable var settings: AppSettings
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var loginItemNeedsApproval = SMAppService.mainApp.status == .requiresApproval
-    @State private var loginItemError: String?
+    @Environment(SystemAccess.self) private var access
 
     var body: some View {
         Form {
             Section {
                 // A plain binding, so correcting the switch after a failure does not count as a new request.
-                Toggle("Open at Login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin))
-                if loginItemNeedsApproval {
+                Toggle(
+                    "Open at Login", isOn: Binding(get: { access.loginItem == .enabled }, set: access.setOpenAtLogin))
+                if access.loginItem == .requiresApproval {
                     LabeledContent("Allow Tweakly in System Settings to open it at login") {
                         Button("Open Settings…") { SMAppService.openSystemSettingsLoginItems() }
                     }
                 }
-                if let loginItemError {
-                    Text(loginItemError).foregroundStyle(.secondary)
+                if let error = access.loginItemError {
+                    Text(error).foregroundStyle(.secondary)
                 }
                 // The simple view lives in this icon, so while that is on the icon stays.
                 Toggle(
@@ -67,10 +66,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        // The approval happens in System Settings, and this page has to see it on coming back.
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshLoginItem()
-        }
     }
 
     private func languagePicker(_ title: LocalizedStringKey, selection: Binding<AppLanguage>) -> some View {
@@ -79,26 +74,6 @@ struct SettingsView: View {
                 Text(language.title).tag(language)
             }
         }
-    }
-
-    private func setLaunchAtLogin(_ isOn: Bool) {
-        do {
-            if isOn {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            loginItemError = nil
-        } catch {
-            loginItemError = error.localizedDescription
-        }
-        refreshLoginItem()
-    }
-
-    private func refreshLoginItem() {
-        let status = SMAppService.mainApp.status
-        loginItemNeedsApproval = status == .requiresApproval
-        launchAtLogin = status == .enabled
     }
 }
 
