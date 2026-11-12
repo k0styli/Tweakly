@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><img src="https://img.shields.io/badge/version-1.0.1-ff8a00" alt="Version 1.0.1"></a>
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/k0styli/Tweakly?label=version&color=ff8a00" alt="Latest version"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white" alt="macOS 26 or later">
   <img src="https://img.shields.io/badge/Apple%20silicon-arm64-555555" alt="Apple silicon">
   <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
