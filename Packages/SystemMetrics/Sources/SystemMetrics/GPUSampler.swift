@@ -31,6 +31,8 @@ final class GPUSampler: MetricSampler {
     }
 
     func reset() {
+        // The graph would put what came before the pause right next to what comes after it.
+        history = RingBuffer(capacity: historyCapacity)
         closeDetails()
     }
 

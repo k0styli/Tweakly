@@ -33,6 +33,22 @@ private final class RateSampler: MetricSampler {
     }
 }
 
+/// A rate whose baseline goes on a reset, as the processor's and the network's do after a pause.
+private final class ResettingRateSampler: MetricSampler {
+    private var readings = 0
+    private var total = 0
+
+    func reset() { readings = 0 }
+
+    func sample(level: SamplingLevel) -> MetricUpdate? {
+        defer {
+            readings += 1
+            total += 1
+        }
+        return readings == 0 ? nil : .cpu(CPUSnapshot(usage: Double(total) / 100))
+    }
+}
+
 private final class Recorder: Sendable {
     private let batches = Mutex<[[MetricUpdate]]>([])
     func record(_ batch: [MetricUpdate]) { batches.withLock { $0.append(batch) } }
@@ -222,6 +238,21 @@ private final class Recorder: Sendable {
         #expect(recorder.count == before + 1)
     }
 
+    /// After a sleep the menu bar still shows what was there before it, and a rate has nothing new to say on its first
+    /// reading. The clock the timer goes by stood still during the sleep, so without a second reading soon the old value
+    /// would stay up to a whole interval.
+    @Test func aRateIsReadAgainSoonAfterAWake() async throws {
+        let recorder = Recorder()
+        let engine = MetricsEngine(output: { recorder.record($0) }, makeSampler: { _ in ResettingRateSampler() })
+        await engine.update(to: SamplingPlan(levels: [.cpu: .menu], menuInterval: 60))
+        try await Task.sleep(for: .milliseconds(600))
+        let before = recorder.count
+        await engine.update(to: SamplingPlan(levels: [.cpu: .menu], menuInterval: 60, isPaused: true))
+        await engine.update(to: SamplingPlan(levels: [.cpu: .menu], menuInterval: 60))
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(recorder.count == before + 1)
+    }
+
     @Test func pausingStopsTheTimerAndResumingRestartsIt() async {
         let engine = makeEngine(Recorder())
         await engine.update(to: SamplingPlan(levels: [.cpu: .menu]))
@@ -337,6 +368,23 @@ private final class Recorder: Sendable {
         #expect(cpu.cores.allSatisfy { (0...1).contains($0) })
         let temperature = try #require(cpu.temperature)
         #expect((10...110).contains(temperature))
+    }
+
+    /// After a sleep the graph must not put the evening's load right next to the morning's.
+    @Test func cpuForgetsItsGraphAcrossReset() throws {
+        let sampler = CPUSampler()
+        for _ in 0..<4 {
+            settle()
+            _ = sampler.sample(level: .overview)
+        }
+        sampler.reset()
+        settle()
+        guard case .cpu(let cpu) = try #require(sampler.sample(level: .overview)) else {
+            Issue.record("wrong kind")
+            return
+        }
+        #expect(cpu.history.count <= 1)
+        #expect(cpu.averages?.oneMinute == nil)
     }
 
     @Test func freshSamplersWaitForAMeaningfulWindow() {

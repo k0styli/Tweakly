@@ -37,6 +37,9 @@ final class NetworkSampler: MetricSampler {
         lastRates = (0, 0)
         hasRates = false
         lastInterfaceRefresh = 0
+        // The graph would put what came before the pause right next to what comes after it.
+        downHistory = RingBuffer(capacity: historyCapacity)
+        upHistory = RingBuffer(capacity: historyCapacity)
         closeDetails()
         takeBaseline()
     }

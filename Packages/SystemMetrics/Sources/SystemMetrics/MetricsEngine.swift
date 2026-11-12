@@ -75,7 +75,12 @@ public actor MetricsEngine {
             sampler.closeDetails()
         }
         let resuming = previous.isPaused && !newPlan.isPaused
-        if resuming { samplers.values.forEach { $0.reset() } }
+        if resuming {
+            samplers.values.forEach { $0.reset() }
+            // The clock the timer goes by stands still in sleep, so readings from before it would look recent, and a
+            // rate, with nothing to say on its first reading, would leave the old value up for up to an interval.
+            lastSampled.removeAll()
+        }
 
         var due: [MetricKind] = []
         for (kind, level) in active {

@@ -62,6 +62,11 @@ final class MetricStatusItem: PopoverStatusItem {
         refresh()
     }
 
+    /// Starts its chart again from the next reading.
+    func forgetHistory() {
+        history = StatusLabelHistory()
+    }
+
     /// Low Power Mode changes how the battery looks without changing its charge.
     func powerStateChanged() {
         refresh()

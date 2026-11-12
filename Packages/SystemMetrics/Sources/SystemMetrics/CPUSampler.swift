@@ -83,8 +83,11 @@ final class CPUSampler: MetricSampler {
 
     func reset() {
         takeBaseline()
-        // Otherwise the value from before the sleep shows as if it were current.
+        // Otherwise the value from before the sleep shows as if it were current, and the graph and the averages put
+        // the hours before it right next to the moments after: their clock stood still while the Mac slept.
         last = nil
+        history = RingBuffer(capacity: historyCapacity)
+        averages = UsageAverages()
         closeDetails()
     }
 

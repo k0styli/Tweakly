@@ -32,6 +32,9 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     /// allows it the slider should work, and while refused each try silences the app for a moment.
     private static let refusedRetryInterval: TimeInterval = 5
     private var lastRefusedRetry = Date.distantPast
+    /// When the running taps were last asked whether they may still be read, at most once a refusal interval.
+    private var lastPermissionCheck = Date.distantPast
+    private var permissionToken: Int32 = NOTIFY_TOKEN_INVALID
     private var linger: DispatchWorkItem?
     /// Apps whose rule went a moment ago, see `TapPlan.releaseHold`, and when.
     private var released: [String: Date] = [:]
@@ -59,10 +62,22 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         systemListener.listen(
             to: AudioObjectID(kAudioObjectSystemObject), [kAudioHardwarePropertyServiceRestarted]
         ) { [weak self] in self?.restartedSoundServer() }
+        // tccd announces any change of a privacy permission. System Audio Recording taken away leaves the running taps
+        // reading silence while they keep their apps muted, and given back lets what was refused run.
+        notify_register_dispatch("com.apple.tcc.access.changed", &permissionToken, .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.permissionsChanged() }
+        }
         #if TWEAKLY_AUTOMATION
             listenForStateRequests()
         #endif
         reload()
+    }
+
+    private func permissionsChanged() {
+        lastPermissionCheck = .now
+        engine.checkPermission()
+        engine.retryFailed()
+        evaluate(readingClients: false)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -91,6 +106,10 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         } else if !engine.isPermitted, Date.now.timeIntervalSince(lastRefusedRetry) >= Self.refusedRetryInterval {
             lastRefusedRetry = .now
             engine.retryFailed()
+        } else if engine.isPermitted, now.timeIntervalSince(lastPermissionCheck) >= Self.refusedRetryInterval {
+            // A slider moved on an app gone silent is someone noticing: ask again, in case tccd's notice was missed.
+            lastPermissionCheck = now
+            engine.checkPermission()
         }
         evaluate(readingClients: ruledChanged)
     }

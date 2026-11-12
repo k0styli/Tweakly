@@ -209,6 +209,12 @@ final class StatsTweak {
             startEngine()
         }
         if plan != lastPlan {
+            // A chart in the menu bar after a sleep, or back from behind the notch, would draw what it showed before
+            // right next to what comes now, as if moments apart.
+            for (kind, item) in items
+            where (lastPlan.isPaused && !plan.isPaused) || (lastPlan.levels[kind] == nil && plan.levels[kind] != nil) {
+                item.forgetHistory()
+            }
             lastPlan = plan
             engine?.apply(plan)
         }
