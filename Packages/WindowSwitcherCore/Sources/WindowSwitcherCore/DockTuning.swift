@@ -83,8 +83,6 @@ public struct DockHover: Equatable, Sendable {
 
     /// The running app whose icon the pointer is on, nil when it is on anything else or off the Dock.
     public private(set) var hovered: Int32?
-    /// Whether the pointer is on an icon of any kind, as opposed to off the Dock.
-    public private(set) var isOnIcon = false
     public private(set) var shown: Int32?
     public private(set) var pending: Int32?
     public private(set) var isInPanel = false
@@ -95,7 +93,6 @@ public struct DockHover: Equatable, Sendable {
     ///   off the Dock.
     public mutating func pointerOnDock(app: Int32?, onIcon: Bool) -> [Action] {
         hovered = app
-        isOnIcon = onIcon
         guard let app else {
             pending = nil
             guard shown != nil, !isInPanel else { return [.stopShowTimer] }
