@@ -585,3 +585,81 @@ private func curve(_ pairs: (Double, Double)...) -> FanCurve {
                 != FanHelper.launchdPlist(forApp: "me.tweakly.Tweakly"))
     }
 }
+
+@Suite struct HelperInstallScriptTests {
+    private let manager = FileManager.default
+
+    private func folder() throws -> String {
+        let path = manager.temporaryDirectory.appending(path: "helper-install-\(UUID().uuidString)").path
+        try manager.createDirectory(atPath: path, withIntermediateDirectories: true)
+        return path
+    }
+
+    private func run(_ script: String) throws -> Int32 {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+
+    private func inode(_ path: String) throws -> UInt64 {
+        try (manager.attributesOfItem(atPath: path)[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0
+    }
+
+    /// An Apple-signed tool stands in for the helper, so the signature check has something real to check.
+    private func script(in root: String, requirement: String?) -> String {
+        HelperInstallScript.install(
+            bundledTool: "/usr/bin/true", toolPath: root + "/Tools/helper", plistPath: root + "/helper.plist",
+            plist: "<plist/>", label: "me.tweakly.test.fanhelper", requirement: requirement,
+            owner: "\(getuid()):\(getgid())", launchd: false)
+    }
+
+    @Test func aHelperInstalledAgainIsANewFileNotTheOldOneRewritten() throws {
+        let root = try folder()
+        defer { try? manager.removeItem(atPath: root) }
+        #expect(try run(script(in: root, requirement: "anchor apple")) == 0)
+        let first = try inode(root + "/Tools/helper")
+        #expect(try run(script(in: root, requirement: "anchor apple")) == 0)
+        // The kernel keeps a signature per file: rewriting the same file in place is what got the new helper killed.
+        #expect(try inode(root + "/Tools/helper") != first)
+        #expect(!manager.fileExists(atPath: root + "/Tools/helper.new"))
+        #expect(try String(contentsOfFile: root + "/helper.plist", encoding: .utf8) == "<plist/>\n")
+        let mode = try manager.attributesOfItem(atPath: root + "/Tools/helper")[.posixPermissions] as? Int
+        #expect(mode == 0o544)
+    }
+
+    @Test func aHelperSignedBySomeoneElseIsNotInstalled() throws {
+        let root = try folder()
+        defer { try? manager.removeItem(atPath: root) }
+        #expect(try run(script(in: root, requirement: "anchor apple")) == 0)
+        let installed = try inode(root + "/Tools/helper")
+        let other = HelperInstallScript.signerRequirement(team: "ZZZZZZZZZZ", leafCertificateSHA1: nil)
+        #expect(try run(script(in: root, requirement: other)) == 65)
+        #expect(try inode(root + "/Tools/helper") == installed)
+        #expect(!manager.fileExists(atPath: root + "/Tools/helper.new"))
+    }
+
+    @Test func theRequirementFollowsHowTheAppIsSigned() {
+        let team = HelperInstallScript.signerRequirement(team: "ABCDE12345", leafCertificateSHA1: "ff")
+        #expect(
+            team?.hasPrefix("anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] exists") == true)
+        #expect(team?.hasSuffix("certificate leaf[subject.OU] = \"ABCDE12345\"") == true)
+        #expect(
+            HelperInstallScript.signerRequirement(team: nil, leafCertificateSHA1: "0a1b")
+                == "certificate leaf = H\"0a1b\"")
+        #expect(HelperInstallScript.signerRequirement(team: "", leafCertificateSHA1: nil) == nil)
+    }
+
+    @Test func pathsWithQuotesStayOneWord() {
+        let script = HelperInstallScript.install(
+            bundledTool: "/Apps/it's/helper", toolPath: "/x/t", plistPath: "/x/p", plist: "", label: "l",
+            requirement: nil)
+        #expect(script.contains("/bin/cp '/Apps/it'\\''s/helper' '/x/t.new'"))
+        #expect(script.hasPrefix("/bin/launchctl bootout system/'l' 2>/dev/null"))
+        #expect(script.hasSuffix("/bin/launchctl bootstrap system '/x/p'"))
+    }
+}

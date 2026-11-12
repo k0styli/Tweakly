@@ -1,5 +1,7 @@
 import AppKit
+import CryptoKit
 import FanControlCore
+import Security
 
 /// Puts the root helper where launchd can start it, which takes an administrator's password once. Runs in the window's
 /// process, as the system's request for a password is something a person asked for by pressing a button.
@@ -30,20 +32,9 @@ enum FanHelperInstaller {
             <key>KeepAlive</key><dict><key>Crashed</key><true/></dict>
             </dict></plist>
             """
-        let script = """
-            /bin/launchctl bootout system/\(label) 2>/dev/null
-            set -e
-            /bin/mkdir -p /Library/PrivilegedHelperTools
-            /bin/cp \(quoted(bundledTool)) \(quoted(toolPath))
-            /usr/sbin/chown root:wheel \(quoted(toolPath))
-            /bin/chmod 544 \(quoted(toolPath))
-            /bin/cat > \(quoted(plistPath)) <<'PLIST'
-            \(plist)
-            PLIST
-            /usr/sbin/chown root:wheel \(quoted(plistPath))
-            /bin/chmod 644 \(quoted(plistPath))
-            /bin/launchctl bootstrap system \(quoted(plistPath))
-            """
+        let script = HelperInstallScript.install(
+            bundledTool: bundledTool, toolPath: toolPath, plistPath: plistPath, plist: plist, label: label,
+            requirement: ownSignerRequirement())
         return run(script, prompt: prompt)
     }
 
@@ -60,6 +51,25 @@ enum FanHelperInstaller {
         case .done, .cancelled: nil
         case .failed(let message): message ?? String(localized: "The helper could not be changed.")
         }
+    }
+
+    /// What the app itself is signed with, which the helper copied from its bundle must be signed with too: the bundle
+    /// can be changed by whoever owns it, and what is installed runs as root.
+    private static func ownSignerRequirement() -> String? {
+        var code: SecCode?
+        var staticCode: SecStaticCode?
+        var information: CFDictionary?
+        guard SecCodeCopySelf([], &code) == errSecSuccess, let code,
+            SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess, let staticCode,
+            SecCodeCopySigningInformation(staticCode, SecCSFlags(rawValue: kSecCSSigningInformation), &information)
+                == errSecSuccess,
+            let information = information as? [String: Any]
+        else { return nil }
+        let leaf = (information[kSecCodeInfoCertificates as String] as? [SecCertificate])?.first.map {
+            Insecure.SHA1.hash(data: SecCertificateCopyData($0) as Data).map { String(format: "%02x", $0) }.joined()
+        }
+        return HelperInstallScript.signerRequirement(
+            team: information[kSecCodeInfoTeamIdentifier as String] as? String, leafCertificateSHA1: leaf)
     }
 
     private static func quoted(_ path: String) -> String {

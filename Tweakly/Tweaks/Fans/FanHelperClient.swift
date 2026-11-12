@@ -37,15 +37,31 @@ final class FanHelperClient {
         proxy { _ in }?.returnToSystem {}
     }
 
-    /// `done` runs on the main thread with the helper's version, or nil if it cannot be reached.
+    /// `done` runs once on the main thread with the helper's version, or nil if it cannot be reached or does not answer
+    /// within a few seconds: a hung helper must not leave a page waiting, and counts as one to install again.
     func version(done: @escaping @MainActor @Sendable (Int?) -> Void) {
-        let proxy = proxy { _ in
-            Task { @MainActor in done(nil) }
+        var answered = false
+        let answer: @MainActor (Int?) -> Void = { version in
+            guard !answered else { return }
+            answered = true
+            done(version)
         }
-        proxy?.version { version in
-            Task { @MainActor in done(version) }
+        let proxy = proxy { _ in
+            Task { @MainActor in answer(nil) }
+        }
+        guard let proxy else {
+            answer(nil)
+            return
+        }
+        proxy.version { version in
+            Task { @MainActor in answer(version) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.versionTimeout) {
+            MainActor.assumeIsolated { answer(nil) }
         }
     }
+
+    private static let versionTimeout: TimeInterval = 3
 
     /// Letting go is what tells the helper the app no longer needs it, if the fans are still held.
     func close() {

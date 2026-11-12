@@ -35,6 +35,10 @@ nonisolated final class SystemProcessHelper {
 
     private var connection: NSXPCConnection?
     private var version: Int?
+    /// A helper that does not answer, most likely one installed by a copy signed differently, is not asked again for a
+    /// minute: each new connection would have launchd start it as root again, every second, while the page is open.
+    private var quietUntil = Date.distantPast
+    private static let retryAfterFailing: TimeInterval = 60
 
     deinit {
         connection?.invalidate()
@@ -46,12 +50,14 @@ nonisolated final class SystemProcessHelper {
             close()
             return .notInstalled
         }
+        guard Date.now >= quietUntil else { return .failing }
         if version == nil {
             version = await call(nil) { proxy, done in proxy.version { done($0) } }
         }
         guard let version else {
             // A connection the helper's reinstall or removal invalidated stays dead: the next try makes a new one.
             close()
+            quietUntil = .now.addingTimeInterval(Self.retryAfterFailing)
             return .failing
         }
         return version >= FanHelper.currentVersion ? .working : .outdated
