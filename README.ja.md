@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>ダウンロード</b></a> · <a href="https://tweakly.me">Webサイト</a>
+  <a href="../../releases/latest/download/Tweakly.dmg"><b>ダウンロード</b></a> · <a href="https://tweakly.me">Webサイト</a>
 </p>
 
 <picture>
@@ -142,7 +142,7 @@
 
 ## インストール
 
-1. [Releases](../../releases/latest)から`Tweakly-1.0.0.dmg`をダウンロードします。
+1. 最新リリースの[Tweakly.dmg](../../releases/latest/download/Tweakly.dmg)をダウンロードします。
 2. ディスクイメージを開き、Tweaklyを“アプリケーション”にドラッグします。
 3. Tweaklyを開きます。インターネットからダウンロードしたアプリを開くかどうか、macOSが一度だけ確認します。
 
@@ -172,6 +172,48 @@ Tweaklyには分析も、アカウントも、アップデートサーバもあ�
 
 外部の画像や動画は、ほかの部分が読み込む前に、ネットワークにアクセスできないサンドボックス内のヘルパーが確認して書き直します。
 
+## よくある質問
+
+**メニューバーにTweaklyのアイコンが表示されません。**
+カメラハウジングのあるMacでは、入りきらない項目はその裏に隠れます。また、macOSはアプリの項目を非表示にできます。“システム設定”›“メニューバー”でTweaklyが許可されているか確認してください。メニューバーがいっぱいの場合は、項目を減らすか、アイコンが1つで済むシンプル表示を使ってください。
+
+**“システム設定”では許可されているのに、Tweaklyは許可されていないと表示します。**
+macOSはアクセス権をアプリの署名に結び付けるため、別のビルドで許可したスイッチは無効になります。“システム設定”でTweaklyのスイッチをオフにしてからオンにするか、ターミナルでリセットして“アクセス権”のページで改めて許可してください：
+
+```bash
+tccutil reset Accessibility me.tweakly.Tweakly
+```
+
+**ウインドウプレビューに画像ではなくアプリのアイコンが表示されます。**
+プレビューには“画面収録とシステムオーディオ録音”が必要です。“アクセス権”のページで許可すると、Tweaklyの再起動後に画像が表示されます（再起動はアプリが案内します）。画像を撮るたびに、macOSは数秒間録画インジケータを表示します。
+
+**“ファン”のページがありません。**
+ファンのあるMacにだけ表示されます。MacBook Airにはファンがありません。
+
+**macOS 26とAppleシリコンだけに対応しているのはなぜですか？**
+TweaklyはLiquid Glassを含むmacOS 26自身のコンポーネントで作られており、Appleシリコンのセンサーとコア構成を読み取るためです。
+
+## アンインストール
+
+1. ライブ壁紙を使っている場合は、先にオフにしてください。Tweaklyがデスクトップピクチャを元に戻します。
+2. ファンやタスクマネージャ用のヘルパーをインストールした場合は、“ファン”›“詳細…”›“削除…”で削除してください。
+3. Tweaklyを終了し（“情報”›“Tweaklyを終了”）、“アプリケーション”からゴミ箱に入れます。
+
+設定とデータも削除する場合：
+
+```bash
+defaults delete me.tweakly.Tweakly
+rm -rf ~/Library/Application\ Support/me.tweakly.Tweakly ~/Library/Caches/me.tweakly.Tweakly
+tccutil reset All me.tweakly.Tweakly
+```
+
+ファンのないMac（“ファン”のページがないMac）では、ヘルパーを次のコマンドで削除します：
+
+```bash
+sudo launchctl bootout system/me.tweakly.Tweakly.fanhelper
+sudo rm /Library/LaunchDaemons/me.tweakly.Tweakly.fanhelper.plist /Library/PrivilegedHelperTools/me.tweakly.Tweakly.fanhelper
+```
+
 ## 言語
 
 英語、ロシア語、ドイツ語、日本語、簡体字中国語。ウインドウ、メニューバー、パネルごとに言語を選べます。
@@ -191,6 +233,10 @@ swift test --package-path Packages/SystemMetrics
 ```
 
 自分で署名したビルドには、別のアクセス権が必要です。macOSはアクセス権を署名に結び付けるため、署名が異なるビルドは改めて許可する必要があります。
+
+## コントリビュート
+
+バグ報告、アイデア、翻訳を歓迎します。まず[CONTRIBUTING.md](CONTRIBUTING.md)をお読みください。脆弱性は[SECURITY.md](SECURITY.md)に書かれているとおり、非公開で報告してください。
 
 ## ライセンス
 

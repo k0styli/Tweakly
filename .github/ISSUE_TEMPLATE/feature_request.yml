@@ -1,0 +1,27 @@
+name: Feature request
+description: An idea for Tweakly, or something macOS is missing that it could add.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tweakly adds what macOS doesn't have, the way macOS itself would do it, and a feature that is off must cost nothing. Ideas that fit that are the most likely to happen.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do, and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: How you'd like it to work. A sketch or a screenshot of another app is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you use now
+      description: Other apps or workarounds you've tried.

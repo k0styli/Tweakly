@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>下载</b></a> · <a href="https://tweakly.me">网站</a>
+  <a href="../../releases/latest/download/Tweakly.dmg"><b>下载</b></a> · <a href="https://tweakly.me">网站</a>
 </p>
 
 <picture>
@@ -142,7 +142,7 @@
 
 ## 安装
 
-1. 从[Releases](../../releases/latest)下载`Tweakly-1.0.0.dmg`。
+1. 下载最新版本的[Tweakly.dmg](../../releases/latest/download/Tweakly.dmg)。
 2. 打开磁盘映像，将Tweakly拖到“应用程序”。
 3. 打开Tweakly。macOS会询问一次是否打开从互联网下载的App。
 
@@ -172,6 +172,48 @@ Tweakly没有分析，没有账户，也没有更新服务器。它只在两种�
 
 来自外部的图片和视频，会先由一个无法访问网络的沙盒辅助程序检查并重新写入，然后其他部分才会读取。
 
+## 常见问题
+
+**菜单栏中没有Tweakly的图标。**
+在带刘海的Mac上，放不下的项目会藏到刘海后面，而且macOS可以隐藏App的项目：请检查“系统设置”›“菜单栏”中是否允许了Tweakly。菜单栏太满时，减少项目，或使用只需一个图标的简洁视图。
+
+**“系统设置”中已打开权限，但Tweakly提示未允许。**
+macOS将权限与App的签名绑定，因此其他构建版本留下的开关不再有效。请在“系统设置”中将Tweakly的开关关闭后再打开，或在终端中重置该权限，然后在“权限”页面重新允许：
+
+```bash
+tccutil reset Accessibility me.tweakly.Tweakly
+```
+
+**窗口预览显示的是App图标而不是画面。**
+预览需要“录屏与系统录音”权限。在“权限”页面允许后，Tweakly重新启动时就会显示画面（App会提示你重新启动）。每次截取画面时，macOS都会显示录制指示器几秒钟。
+
+**没有“风扇”页面。**
+它只在配备风扇的Mac上出现。MacBook Air没有风扇。
+
+**为什么只支持macOS 26和Apple芯片？**
+Tweakly由macOS 26自身的组件构建（包括Liquid Glass），并读取Apple芯片的传感器和核心布局。
+
+## 卸载
+
+1. 如果你在使用动态墙纸，请先将其关闭：Tweakly会恢复你的桌面图片。
+2. 如果你为风扇或任务管理器安装了辅助程序，请将其移除：“风扇”›“高级…”›“移除…”。
+3. 退出Tweakly（“关于”›“退出Tweakly”），然后将其从“应用程序”移到废纸篓。
+
+如需同时移除设置和数据：
+
+```bash
+defaults delete me.tweakly.Tweakly
+rm -rf ~/Library/Application\ Support/me.tweakly.Tweakly ~/Library/Caches/me.tweakly.Tweakly
+tccutil reset All me.tweakly.Tweakly
+```
+
+在没有风扇（因而没有“风扇”页面）的Mac上，用以下命令移除辅助程序：
+
+```bash
+sudo launchctl bootout system/me.tweakly.Tweakly.fanhelper
+sudo rm /Library/LaunchDaemons/me.tweakly.Tweakly.fanhelper.plist /Library/PrivilegedHelperTools/me.tweakly.Tweakly.fanhelper
+```
+
 ## 语言
 
 英语、俄语、德语、日语和简体中文。窗口、菜单栏和面板可以分别使用不同的语言。
@@ -191,6 +233,10 @@ swift test --package-path Packages/SystemMetrics
 ```
 
 由你自己签名的构建会有自己的权限：macOS将权限与签名绑定，签名不同的构建需要重新允许。
+
+## 参与贡献
+
+欢迎报告错误、提出想法和帮助翻译。请先阅读[CONTRIBUTING.md](CONTRIBUTING.md)，并按照[SECURITY.md](SECURITY.md)中的说明私下报告安全问题。
 
 ## 许可证
 

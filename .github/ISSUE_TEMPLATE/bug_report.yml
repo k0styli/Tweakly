@@ -1,0 +1,106 @@
+name: Bug report
+description: Something in Tweakly doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more exact the steps, the sooner it gets fixed.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched open and closed issues and read the [FAQ](https://github.com/k0styli/Tweakly#faq).
+          required: true
+        - label: I'm on the latest release of Tweakly.
+          required: true
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Feature
+      description: Where the problem shows up.
+      options:
+        - Stats in the menu bar
+        - Simple View
+        - Window Switcher
+        - Dock Previews
+        - Task Manager
+        - App Uninstaller
+        - Volume Mixer
+        - Live Wallpaper
+        - Fans
+        - Mouse
+        - Language Switch
+        - Cut in Finder
+        - Finder Menu
+        - Keyboard Cleaning
+        - Permissions
+        - Main window or settings
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected to see instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Turn on Window Switcher
+        2. Open three Safari windows on two desktops
+        3. Press Command-Tab
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often
+      options:
+        - Every time
+        - Often
+        - Sometimes
+        - Once
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Tweakly version
+      description: The About page in Tweakly's window shows the version and the build.
+      placeholder: 1.0.0 (2)
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      description: Apple menu › About This Mac.
+      placeholder: macOS 26.1 (25B78)
+    validations:
+      required: true
+  - type: input
+    id: mac-model
+    attributes:
+      label: Mac
+      placeholder: MacBook Pro 14-inch, M4 Pro
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Crash report or log
+      description: |
+        After a crash, Console › Crash Reports lists a report named Tweakly. For a log, run the command below in Terminal, repeat the problem, press Control-C and paste what it printed.
+        `log stream --predicate 'subsystem BEGINSWITH "me.tweakly"' --level info`
+      render: shell
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Screenshots or a screen recording help a lot with anything you can see.

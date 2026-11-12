@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>Download</b></a> · <a href="https://tweakly.me">Website</a>
+  <a href="../../releases/latest/download/Tweakly.dmg"><b>Download</b></a> · <a href="https://tweakly.me">Website</a>
 </p>
 
 <picture>
@@ -142,7 +142,7 @@
 
 ## Install
 
-1. Download `Tweakly-1.0.0.dmg` from [Releases](../../releases/latest).
+1. Download [Tweakly.dmg](../../releases/latest/download/Tweakly.dmg), the latest release.
 2. Open it and drag Tweakly to Applications.
 3. Open Tweakly. macOS asks once whether to open an app downloaded from the internet.
 
@@ -172,6 +172,48 @@ Tweakly has no analytics, no accounts and no update server. It goes online in tw
 
 Pictures and videos from outside are checked and rewritten by a sandboxed helper with no network access before anything else reads them.
 
+## FAQ
+
+**Tweakly's icons don't show in the menu bar.**
+On a Mac with a notch, items that don't fit go behind it, and macOS can hide an app's items: check that Tweakly is allowed in System Settings › Menu Bar. On a full menu bar, fewer items or Simple View, which needs only one icon, help.
+
+**A permission is on in System Settings, but Tweakly says it isn't allowed.**
+macOS ties permissions to an app's signature, so a switch left on from another build no longer counts. Turn Tweakly's switch off and on again in System Settings, or reset it in Terminal and allow it again on the Permissions page:
+
+```bash
+tccutil reset Accessibility me.tweakly.Tweakly
+```
+
+**Window previews show app icons instead of pictures.**
+Previews need Screen & System Audio Recording. Allow it on the Permissions page; pictures appear after Tweakly restarts, which it offers to do. macOS lights its recording indicator for a few seconds each time a picture is taken.
+
+**There's no Fans page.**
+It appears only on Macs with fans. The MacBook Air has none.
+
+**Why only macOS 26 and Apple silicon?**
+Tweakly is built from macOS 26's own components, Liquid Glass among them, and reads the sensors and the core layout of Apple silicon.
+
+## Uninstall
+
+1. If you use Live Wallpaper, turn it off first: Tweakly puts your desktop picture back.
+2. If you installed the helper for fans or Task Manager, remove it: Fans › Advanced… › Remove…
+3. Quit Tweakly (About › Quit Tweakly) and move it from Applications to the Trash.
+
+To remove its settings and data too:
+
+```bash
+defaults delete me.tweakly.Tweakly
+rm -rf ~/Library/Application\ Support/me.tweakly.Tweakly ~/Library/Caches/me.tweakly.Tweakly
+tccutil reset All me.tweakly.Tweakly
+```
+
+On a Mac without fans, which has no Fans page, the helper goes with:
+
+```bash
+sudo launchctl bootout system/me.tweakly.Tweakly.fanhelper
+sudo rm /Library/LaunchDaemons/me.tweakly.Tweakly.fanhelper.plist /Library/PrivilegedHelperTools/me.tweakly.Tweakly.fanhelper
+```
+
 ## Languages
 
 English, Russian, German, Japanese and Simplified Chinese. The window, the menu bar and the panels can each have their own language.
@@ -191,6 +233,10 @@ swift test --package-path Packages/SystemMetrics
 ```
 
 A build signed by you gets permissions of its own: macOS ties them to the signature, so a build with a different one has to be allowed again.
+
+## Contributing
+
+Bug reports, ideas and translations are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first, and report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Frequently asked questions
+    url: https://github.com/k0styli/Tweakly#faq
+    about: Menu bar icons that don't show, permissions that look on but don't work, and other common questions.
+  - name: Questions and ideas
+    url: https://github.com/k0styli/Tweakly/discussions
+    about: Ask how something works or share an idea before it becomes a request.
+  - name: Report a security issue
+    url: https://github.com/k0styli/Tweakly/security/policy
+    about: Please don't open a public issue for a vulnerability.

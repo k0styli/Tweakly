@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><b>Laden</b></a> · <a href="https://tweakly.me">Website</a>
+  <a href="../../releases/latest/download/Tweakly.dmg"><b>Laden</b></a> · <a href="https://tweakly.me">Website</a>
 </p>
 
 <picture>
@@ -142,7 +142,7 @@
 
 ## Installation
 
-1. Lade `Tweakly-1.0.0.dmg` unter [Releases](../../releases/latest).
+1. Lade [Tweakly.dmg](../../releases/latest/download/Tweakly.dmg), das neueste Release.
 2. Öffne das Image und zieh Tweakly in den Ordner „Programme“.
 3. Öffne Tweakly. macOS fragt einmal, ob du eine aus dem Internet geladene App öffnen möchtest.
 
@@ -172,6 +172,48 @@ Tweakly hat keine Analyse, keine Accounts und keinen Update-Server. Online geht 
 
 Bilder und Videos von außen prüft ein Hilfsprogramm in einer Sandbox ohne Netzwerkzugang und schreibt sie neu, bevor irgendetwas anderes sie liest.
 
+## Häufige Fragen
+
+**Die Symbole von Tweakly fehlen in der Menüleiste.**
+Auf einem Mac mit Notch landet, was nicht passt, hinter der Notch, und macOS kann die Symbole einer App ausblenden: Prüfe, ob Tweakly unter „Systemeinstellungen“ › „Menüleiste“ erlaubt ist. Bei einer vollen Menüleiste helfen weniger Symbole oder die Einfache Ansicht, die nur ein Symbol braucht.
+
+**In den Systemeinstellungen ist eine Berechtigung an, aber Tweakly sagt, sie fehlt.**
+macOS bindet Berechtigungen an die Signatur einer App, ein Schalter aus einem anderen Build gilt also nicht mehr. Schalte Tweakly in den Systemeinstellungen aus und wieder ein, oder setze die Berechtigung im Terminal zurück und erteile sie auf der Seite „Berechtigungen“ neu:
+
+```bash
+tccutil reset Accessibility me.tweakly.Tweakly
+```
+
+**Die Fenstervorschauen zeigen App-Symbole statt Bildern.**
+Vorschauen brauchen „Aufnahme von Bildschirm & Systemaudio“. Erteile sie auf der Seite „Berechtigungen“; die Bilder erscheinen nach einem Neustart von Tweakly, den die App anbietet. macOS zeigt bei jedem Bild für ein paar Sekunden die Aufnahmeanzeige.
+
+**Es gibt keine Seite „Lüfter“.**
+Sie erscheint nur auf Macs mit Lüftern. Das MacBook Air hat keine.
+
+**Warum nur macOS 26 und Apple silicon?**
+Tweakly besteht aus den Komponenten von macOS 26, darunter Liquid Glass, und liest die Sensoren und den Aufbau der Kerne von Apple silicon.
+
+## Deinstallieren
+
+1. Wenn du Live-Hintergrundbilder nutzt, schalte sie zuerst aus: Tweakly stellt dein Schreibtischbild wieder her.
+2. Wenn du das Hilfsprogramm für Lüfter oder den Task-Manager installiert hast, entferne es: „Lüfter“ › „Weitere Optionen …“ › „Entfernen …“.
+3. Beende Tweakly („Info“ › „Tweakly beenden“) und bewege es aus „Programme“ in den Papierkorb.
+
+Um auch Einstellungen und Daten zu entfernen:
+
+```bash
+defaults delete me.tweakly.Tweakly
+rm -rf ~/Library/Application\ Support/me.tweakly.Tweakly ~/Library/Caches/me.tweakly.Tweakly
+tccutil reset All me.tweakly.Tweakly
+```
+
+Auf einem Mac ohne Lüfter, der keine Seite „Lüfter“ hat, entfernst du das Hilfsprogramm so:
+
+```bash
+sudo launchctl bootout system/me.tweakly.Tweakly.fanhelper
+sudo rm /Library/LaunchDaemons/me.tweakly.Tweakly.fanhelper.plist /Library/PrivilegedHelperTools/me.tweakly.Tweakly.fanhelper
+```
+
 ## Sprachen
 
 Englisch, Russisch, Deutsch, Japanisch und vereinfachtes Chinesisch. Das Fenster, die Menüleiste und die Fenster der Menüleiste können jeweils eine eigene Sprache haben.
@@ -191,6 +233,10 @@ swift test --package-path Packages/SystemMetrics
 ```
 
 Ein selbst signierter Build bekommt eigene Berechtigungen: macOS bindet sie an die Signatur, ein Build mit einer anderen muss sie neu erhalten.
+
+## Mitmachen
+
+Fehlerberichte, Ideen und Übersetzungen sind willkommen. Lies bitte zuerst [CONTRIBUTING.md](CONTRIBUTING.md) und melde Sicherheitslücken vertraulich, wie in [SECURITY.md](SECURITY.md) beschrieben.
 
 ## Lizenz
 
