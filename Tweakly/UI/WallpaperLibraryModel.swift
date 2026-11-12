@@ -38,6 +38,8 @@ import os
 
     init() {
         all = index.newestFirst
+        // Hundreds of megabytes may be waiting there since a window closed mid-way, which nothing else would remove.
+        Task.detached(priority: .utility) { WallpaperFolder.removeLeftovers() }
     }
 
     var shown: [LibraryIndex.Entry] {

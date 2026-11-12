@@ -941,3 +941,88 @@ func wallpaper(
         #expect(VideoFacts.codecName(0x7261_7720) == "raw")
     }
 }
+
+@Suite struct CleanerOutputTests {
+    private let manager = FileManager.default
+
+    /// A job folder as the client makes it, with the cleaner's file in it, and the folder the library takes into.
+    private func setUp() throws -> (root: String, job: String, made: CleanerOutput.Identity, into: String) {
+        let root = manager.temporaryDirectory.appending(path: "cleaner-output-\(UUID().uuidString)").path
+        let job = root + "/inbox/job"
+        let into = root + "/incoming"
+        try manager.createDirectory(atPath: job, withIntermediateDirectories: true)
+        try manager.createDirectory(atPath: into, withIntermediateDirectories: true)
+        let made = try CleanerOutput.Identity(of: job)
+        try Data("video".utf8).write(to: URL(fileURLWithPath: job + "/v.mp4"))
+        return (root, job, made, into)
+    }
+
+    @Test func theCleanersOwnFilesAreTaken() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        try CleanerOutput.take(["v.mp4"], from: job, madeAs: made, into: into)
+        #expect(try String(contentsOfFile: into + "/v.mp4", encoding: .utf8) == "video")
+        #expect(!manager.fileExists(atPath: job + "/v.mp4"))
+        let mode = try manager.attributesOfItem(atPath: into + "/v.mp4")[.posixPermissions] as? Int
+        #expect(mode == 0o644)
+    }
+
+    @Test func aJobFolderSwappedForALinkGivesNothing() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        // Someone's own file, which the cleaner may not read, reached through a link where its folder was.
+        try manager.createDirectory(atPath: root + "/Documents", withIntermediateDirectories: true)
+        try Data("taxes".utf8).write(to: URL(fileURLWithPath: root + "/Documents/v.mp4"))
+        try manager.moveItem(atPath: job, toPath: root + "/inbox/moved")
+        try manager.createSymbolicLink(atPath: job, withDestinationPath: root + "/Documents")
+        #expect(throws: CleanerOutput.Refused.self) {
+            try CleanerOutput.take(["v.mp4"], from: job, madeAs: made, into: into)
+        }
+        #expect(try String(contentsOfFile: root + "/Documents/v.mp4", encoding: .utf8) == "taxes")
+        #expect(try manager.contentsOfDirectory(atPath: into).isEmpty)
+    }
+
+    @Test func anotherRealFolderInThePlaceOfTheJobsGivesNothing() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        try manager.moveItem(atPath: job, toPath: root + "/inbox/moved")
+        try manager.createDirectory(atPath: job, withIntermediateDirectories: true)
+        try Data("other".utf8).write(to: URL(fileURLWithPath: job + "/v.mp4"))
+        #expect(throws: CleanerOutput.Refused.self) {
+            try CleanerOutput.take(["v.mp4"], from: job, madeAs: made, into: into)
+        }
+    }
+
+    @Test func aLinkInsteadOfAFileGivesNothing() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        try Data("taxes".utf8).write(to: URL(fileURLWithPath: root + "/secret"))
+        try manager.removeItem(atPath: job + "/v.mp4")
+        try manager.createSymbolicLink(atPath: job + "/v.mp4", withDestinationPath: root + "/secret")
+        #expect(throws: CleanerOutput.Refused.self) {
+            try CleanerOutput.take(["v.mp4"], from: job, madeAs: made, into: into)
+        }
+        #expect(try String(contentsOfFile: root + "/secret", encoding: .utf8) == "taxes")
+        #expect(try manager.contentsOfDirectory(atPath: into).isEmpty)
+    }
+
+    @Test func aHardLinkToAnotherFileGivesNothing() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        try Data("taxes".utf8).write(to: URL(fileURLWithPath: root + "/secret"))
+        try manager.removeItem(atPath: job + "/v.mp4")
+        try manager.linkItem(atPath: root + "/secret", toPath: job + "/v.mp4")
+        #expect(throws: CleanerOutput.Refused.self) {
+            try CleanerOutput.take(["v.mp4"], from: job, madeAs: made, into: into)
+        }
+        #expect(manager.fileExists(atPath: root + "/secret"))
+    }
+
+    @Test func aNameThatClimbsOutGivesNothing() throws {
+        let (root, job, made, into) = try setUp()
+        defer { try? manager.removeItem(atPath: root) }
+        #expect(throws: CleanerOutput.Refused.self) {
+            try CleanerOutput.take(["../v.mp4"], from: job, madeAs: made, into: into)
+        }
+    }
+}

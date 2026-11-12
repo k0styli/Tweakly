@@ -741,21 +741,26 @@ private struct HoverVideo: NSViewRepresentable {
     }
 }
 
+///
+/// It plays only while its window can be seen. A window minimized, sent to another Space or closed with the pointer
+/// still on a tile gets no hover change, and the original, 4K perhaps, would go on decoding for nobody: so the player
+/// lets go of the file there, and takes it again when the window is back.
 private final class HoverVideoView: NSView {
+    private let url: URL
     private let playerLayer = AVPlayerLayer()
     private var looper: AVPlayerLooper?
     private let player = AVQueuePlayer()
+    private var windowObservers: [NSObjectProtocol] = []
+    private var isStopped = false
 
     init(url: URL) {
+        self.url = url
         super.init(frame: .zero)
         wantsLayer = true
         playerLayer.videoGravity = .resizeAspectFill
         layer?.addSublayer(playerLayer)
         player.isMuted = true
         player.preventsDisplaySleepDuringVideoPlayback = false
-        looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
-        playerLayer.player = player
-        player.play()
     }
 
     @available(*, unavailable)
@@ -766,12 +771,48 @@ private final class HoverVideoView: NSView {
         playerLayer.frame = bounds
     }
 
-    func stop() {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers = []
+        if let window {
+            let center = NotificationCenter.default
+            for name in [NSWindow.didChangeOcclusionStateNotification, NSWindow.willCloseNotification] {
+                windowObservers.append(
+                    center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                        let closing = name == NSWindow.willCloseNotification
+                        MainActor.assumeIsolated { self?.followWindow(closing: closing) }
+                    })
+            }
+        }
+        followWindow(closing: false)
+    }
+
+    private func followWindow(closing: Bool) {
+        guard !isStopped else { return }
+        if !closing, let window, window.occlusionState.contains(.visible) {
+            guard looper == nil else { return }
+            looper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: url))
+            playerLayer.player = player
+            player.play()
+        } else {
+            release()
+        }
+    }
+
+    private func release() {
         looper?.disableLooping()
         looper = nil
         player.pause()
         player.removeAllItems()
         playerLayer.player = nil
+    }
+
+    func stop() {
+        isStopped = true
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers = []
+        release()
     }
 }
 

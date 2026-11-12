@@ -104,8 +104,7 @@ enum VideoOptimizer {
         let isTurned = abs(video.transform.b) == 1 && abs(video.transform.c) == 1
         let encoded = isTurned ? (plan.height, plan.width) : (plan.width, plan.height)
         let fileType: AVFileType = video.url.pathExtension.lowercased() == "mov" ? .mov : .mp4
-        let output = FileManager.default.temporaryDirectory.appendingPathComponent(
-            UUID().uuidString + "." + video.url.pathExtension)
+        let output = WallpaperFolder.newWorkFile(extension: video.url.pathExtension)
         do {
             let conversion = try Conversion(
                 asset: video.asset, track: video.track, transform: video.transform, output: output,

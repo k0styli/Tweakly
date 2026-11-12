@@ -565,11 +565,8 @@ final class WallpaperBrowserController: NSObject, NSWindowDelegate, NSToolbarDel
             finishIfIdle()
             return nil
         }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "WallpaperDownloads", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // A name of our own with an extension no app opens: the site's name never becomes a path or a file type.
-        let file = folder.appendingPathComponent(UUID().uuidString + ".download")
+        let file = WallpaperFolder.newWorkFile()
         context.file = file
         contexts[id] = context
         let title = DownloadNaming.title(

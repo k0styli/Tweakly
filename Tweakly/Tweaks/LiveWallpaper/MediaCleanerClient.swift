@@ -38,6 +38,7 @@ enum MediaCleanerClient {
         removeStaleJobs()
         let folder = inbox.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let made = try CleanerOutput.Identity(of: folder.path)
         do {
             let input = folder.appendingPathComponent("input")
             if moving {
@@ -52,13 +53,14 @@ enum MediaCleanerClient {
             case .refused(let problem):
                 throw WallpaperImporter.Failure(problem: problem)
             case .cleaned(let media):
-                // Whatever the cleaner says, only files inside the job's folder are taken, and only files it wrote
-                // there: a cleaner taken over by a hostile file could leave a link to someone's own file instead.
+                // Whatever the cleaner says, only files it wrote in the job's own folder are taken, and taken out of
+                // its reach before anything else looks at them: a cleaner taken over by a hostile file keeps running,
+                // and could leave a link to someone's own file in their place, or swap the folder itself.
                 let names = [media.fileName, media.thumbnailName] + (media.stillName.map { [$0] } ?? [])
-                guard media.namesArePlain,
-                    names.allSatisfy({ isOwnFile(folder.appendingPathComponent($0)) })
-                else { throw WallpaperImporter.Failure(problem: .couldNotCheck) }
-                return Job(folder: folder, media: media)
+                guard media.namesArePlain else { throw WallpaperImporter.Failure(problem: .couldNotCheck) }
+                let taken = try takeOut(names, from: folder, madeAs: made)
+                try? FileManager.default.removeItem(at: folder)
+                return Job(folder: taken, media: media)
             }
         } catch {
             try? FileManager.default.removeItem(at: folder)
@@ -66,11 +68,18 @@ enum MediaCleanerClient {
         }
     }
 
-    /// A plain file with no other name: not a link, a folder or a hard link to a file elsewhere.
-    private static func isOwnFile(_ url: URL) -> Bool {
-        var status = stat()
-        guard lstat(url.path, &status) == 0 else { return false }
-        return status.st_mode & S_IFMT == S_IFREG && status.st_nlink == 1
+    /// Into a folder of the library's own, next to the wallpapers, so the files can be renamed into place.
+    private static func takeOut(_ names: [String], from folder: URL, madeAs made: CleanerOutput.Identity) throws -> URL
+    {
+        let taken = try WallpaperFolder.newIncoming()
+        do {
+            try CleanerOutput.take(names, from: folder.path, madeAs: made, into: taken.path)
+            return taken
+        } catch {
+            log.error("The cleaner's files were not taken: \(String(describing: error), privacy: .public)")
+            try? FileManager.default.removeItem(at: taken)
+            throw WallpaperImporter.Failure(problem: .couldNotCheck)
+        }
     }
 
     private static func ask(_ request: CleanRequest) async throws -> CleanReply {
