@@ -13,6 +13,19 @@ public enum FinderFocus: Equatable, Sendable {
     }
 }
 
+/// Whether Escape is about the files, and so cancels a cut. In a window of files or on the desktop it is; with Quick Look
+/// up, a menu open or another of Finder's panels in front, it only closes that, and the cut goes on waiting. Checked on
+/// macOS 27.2: with only the desktop, Finder has no focused window and its focus is the group of desktop icons.
+public enum FinderEscape {
+    private static let menuRoles: Set<String> = ["AXMenu", "AXMenuItem", "AXMenuBar", "AXMenuBarItem"]
+
+    public static func isAboutFiles(focusRole: String?, windowSubrole: String?) -> Bool {
+        if let focusRole, menuRoles.contains(focusRole) { return false }
+        guard let windowSubrole else { return true }
+        return windowSubrole == "AXStandardWindow"
+    }
+}
+
 /// Whether files are waiting to be moved. Finder has no cut of its own, only copying and "Move Item Here", so a cut
 /// is a copy this tweak remembers. The pasteboard's change count says whether that copy is still what it holds.
 public struct FinderCutState: Equatable, Sendable {

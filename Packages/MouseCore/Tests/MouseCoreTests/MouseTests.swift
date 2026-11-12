@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import MouseCore
@@ -141,5 +142,41 @@ import Testing
         #expect(SideButtons.swipe(button: 3, bundleID: "com.apple.Safari", enabled: false) == nil)
         #expect(SideButtons.swipe(button: 2, bundleID: "com.apple.Safari", enabled: true) == nil)
         #expect(SideButtons.swipe(button: 3, bundleID: "org.mozilla.firefoxbeta", enabled: true) == nil)
+    }
+}
+
+@Suite struct MouseOriginalsTests {
+    private let systems = MouseOriginals.Values(resolution: 400, linear: 0, acceleration: 45056)
+    private let tweaklys = MouseOriginals.Values(resolution: 200, linear: 1, acceleration: 45056)
+
+    @Test func theFirstReadingIsKept() {
+        var originals = MouseOriginals()
+        #expect(originals.original(of: 7, now: systems) == systems)
+        #expect(originals.kept(for: 7) == systems)
+    }
+
+    @Test func afterACrashTheValuesFromBeforeWinOverTweaklysOwn() throws {
+        var before = MouseOriginals()
+        _ = before.original(of: 7, now: systems)
+        // The agent dies with the speed set; the next one finds Tweakly's values on the mouse.
+        var after = try JSONDecoder().decode(MouseOriginals.self, from: JSONEncoder().encode(before))
+        #expect(after.original(of: 7, now: tweaklys) == systems)
+    }
+
+    @Test func aMousePutBackIsForgotten() {
+        var originals = MouseOriginals()
+        _ = originals.original(of: 7, now: systems)
+        originals.forget(7)
+        #expect(originals.isEmpty)
+        #expect(originals.original(of: 7, now: tweaklys) == tweaklys)
+    }
+
+    @Test func miceUnpluggedSinceAreDropped() {
+        var originals = MouseOriginals()
+        _ = originals.original(of: 7, now: systems)
+        _ = originals.original(of: 8, now: systems)
+        originals.keepOnly([8])
+        #expect(originals.kept(for: 7) == nil)
+        #expect(originals.kept(for: 8) == systems)
     }
 }

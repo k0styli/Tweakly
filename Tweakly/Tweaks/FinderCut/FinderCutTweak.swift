@@ -184,10 +184,15 @@ final class FinderCutTweak {
     }
 
     private func cancelPressed(pid: pid_t) {
-        FinderCommands.readFocus(pid: pid) { [weak self] focus, owner in
+        FinderCommands.readEscape(pid: pid) { [weak self] focus, owner, aboutFiles in
             guard let self else { return }
-            // Escape still means what it means there, such as leaving a name being edited.
+            // Escape still means what it means there, such as leaving a name being edited or closing Quick Look.
             FinderCommands.pressKey(kVK_Escape, flags: [], pid: owner)
+            // Closing Quick Look or a menu leaves the cut waiting, as it is not about the files.
+            guard aboutFiles else {
+                self.applyShortcuts()
+                return
+            }
             let change = self.pasteboardChange
             if self.state.cancel(focus: focus, change: change) {
                 self.emptyPasteboard(ifStill: change, after: 0)

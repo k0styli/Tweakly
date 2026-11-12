@@ -342,9 +342,10 @@ final class WindowSwitcherTweak {
             self?.commit()
         }
         session.panel = panel
-        // The app can lose the permission while it runs, and then nothing taken with it should stay.
         guard capturing else {
-            pictures.forgetEverything()
+            // The app can lose the permission while it runs, and then nothing taken with it should stay. Previews
+            // turned off here only are no reason: the Dock's previews share these pictures.
+            if !pictures.mayCapture { pictures.forgetEverything() }
             return
         }
         pictures.forgetClosedWindows()

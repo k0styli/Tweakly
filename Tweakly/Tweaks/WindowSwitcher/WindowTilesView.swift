@@ -50,6 +50,8 @@ final class WindowTilesView: NSView {
             let tile = WindowTileView(
                 item: item, showsIcon: !item.hasWindow || !willHavePictures, frame: frame, radius: shape.tileRadius,
                 scale: scale)
+            let index = tiles.count
+            tile.onPress = { [weak self] in self?.onClick?(index) }
             addSubview(tile)
             tiles.append(tile)
             let label = WindowLabelView(
@@ -121,6 +123,17 @@ final class WindowTilesView: NSView {
         frame.contains(point) ? self : nil
     }
 
+    // VoiceOver goes by the tile under the point, which `hitTest` above keeps from it, and presses a tile itself.
+    // Accessibility asks on the main thread, as AppKit's own views assume.
+    nonisolated override func accessibilityHitTest(_ point: NSPoint) -> Any? {
+        let tile = MainActor.assumeIsolated { () -> WindowTileView? in
+            guard let window else { return nil }
+            let local = convert(window.convertPoint(fromScreen: point), from: nil)
+            return tiles.first { $0.frame.contains(local) }
+        }
+        return tile ?? super.accessibilityHitTest(point)
+    }
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func updateTrackingAreas() {
@@ -180,6 +193,15 @@ private final class WindowTileView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(item.accessibilityLabel)
+    }
+
+    /// Set by the row of tiles, as a click on the tile does.
+    var onPress: (() -> Void)?
+
+    override func accessibilityPerformPress() -> Bool {
+        guard let onPress else { return false }
+        onPress()
+        return true
     }
 
     @available(*, unavailable)

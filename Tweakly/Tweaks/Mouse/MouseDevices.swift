@@ -25,15 +25,11 @@ final class MouseDevices {
     /// The event system makes its record of a new mouse a moment after the device appears.
     private static let settleDelay: TimeInterval = 0.5
 
-    /// What a mouse had before Tweakly changed it.
-    private struct Original {
-        let resolution: Double
-        let linear: CFTypeRef?
-        let acceleration: CFTypeRef?
-    }
+    /// Where what each mouse had is kept while Tweakly's values are on it, see `MouseOriginals`.
+    private static let originalsKey = "mouseOriginals"
 
     private let client = HIDEventSystemClients.passive()
-    private var originals: [UInt64: Original] = [:]
+    private var originals = MouseDevices.storedOriginals()
     private var settings = MouseSettings()
     private var notificationPort: IONotificationPortRef?
     private var arrivals: io_iterator_t = 0
@@ -49,13 +45,18 @@ final class MouseDevices {
 
     func apply(_ settings: MouseSettings) {
         self.settings = settings
-        for service in mice() { apply(settings, to: service) }
+        let mice = mice()
+        for service in mice { apply(settings, to: service) }
+        originals.keepOnly(Set(mice.map(Self.registryID)))
+        save()
     }
 
     /// Every mouse as it was, and nothing left watching.
     func stop() {
-        for service in mice() { restore(service) }
-        originals = [:]
+        let mice = mice()
+        for service in mice { restore(service) }
+        originals.keepOnly([])
+        save()
         pendingApply?.cancel()
         pendingApply = nil
         if arrivals != 0 { IOObjectRelease(arrivals) }
@@ -95,28 +96,71 @@ final class MouseDevices {
     }
 
     private func apply(_ settings: MouseSettings, to service: IOHIDServiceClient) {
-        let id = Self.registryID(of: service)
-        let original =
-            originals[id]
-            ?? Original(
-                resolution: Self.fixed(IOHIDServiceClientCopyProperty(service, Self.resolutionKey as CFString))
-                    ?? Self.defaultResolution,
-                linear: IOHIDServiceClientCopyProperty(service, Self.linearKey as CFString),
-                acceleration: IOHIDServiceClientCopyProperty(service, Self.accelerationKey as CFString))
-        originals[id] = original
+        let original = originals.original(of: Self.registryID(of: service), now: Self.values(of: service))
         set(service, Self.linearKey, NSNumber(value: settings.acceleration ? 0 : 1))
         set(
             service, Self.resolutionKey,
             Self.fixedNumber(PointerSpeed.resolution(original: original.resolution, speed: settings.speed)))
         // A new resolution takes effect when the acceleration is set again, as LinearMouse found.
-        if let acceleration = original.acceleration { set(service, Self.accelerationKey, acceleration) }
+        if let acceleration = original.acceleration {
+            set(service, Self.accelerationKey, NSNumber(value: acceleration))
+        }
     }
 
     private func restore(_ service: IOHIDServiceClient) {
-        guard let original = originals[Self.registryID(of: service)] else { return }
-        set(service, Self.linearKey, original.linear ?? NSNumber(value: Self.systemWantsLinear ? 1 : 0))
-        set(service, Self.resolutionKey, Self.fixedNumber(original.resolution))
-        if let acceleration = original.acceleration { set(service, Self.accelerationKey, acceleration) }
+        let id = Self.registryID(of: service)
+        guard let original = originals.kept(for: id) else { return }
+        Self.put(original, on: service)
+        originals.forget(id)
+    }
+
+    private static func put(_ original: MouseOriginals.Values, on service: IOHIDServiceClient) {
+        let linear = original.linear ?? (systemWantsLinear ? 1 : 0)
+        _ = IOHIDServiceClientSetProperty(service, linearKey as CFString, NSNumber(value: linear))
+        _ = IOHIDServiceClientSetProperty(service, resolutionKey as CFString, fixedNumber(original.resolution))
+        if let acceleration = original.acceleration {
+            _ = IOHIDServiceClientSetProperty(service, accelerationKey as CFString, NSNumber(value: acceleration))
+        }
+    }
+
+    private static func values(of service: IOHIDServiceClient) -> MouseOriginals.Values {
+        MouseOriginals.Values(
+            resolution: fixed(IOHIDServiceClientCopyProperty(service, resolutionKey as CFString)) ?? defaultResolution,
+            linear: number(IOHIDServiceClientCopyProperty(service, linearKey as CFString)),
+            acceleration: (IOHIDServiceClientCopyProperty(service, accelerationKey as CFString) as? NSNumber)?
+                .int64Value)
+    }
+
+    // MARK: Kept values
+
+    private static func storedOriginals() -> MouseOriginals {
+        guard let data = UserDefaults.standard.data(forKey: originalsKey),
+            let stored = try? JSONDecoder().decode(MouseOriginals.self, from: data)
+        else { return MouseOriginals() }
+        return stored
+    }
+
+    private func save() {
+        if originals.isEmpty {
+            UserDefaults.standard.removeObject(forKey: Self.originalsKey)
+        } else if let data = try? JSONEncoder().encode(originals) {
+            UserDefaults.standard.set(data, forKey: Self.originalsKey)
+        }
+    }
+
+    /// Puts back what an agent that ended without stopping the tweak, a crash or a force quit, left on the mice, when
+    /// the tweak is off at the next start. Nothing is read or made unless something was left.
+    static func restoreLeftovers() {
+        guard UserDefaults.standard.data(forKey: originalsKey) != nil else { return }
+        let originals = storedOriginals()
+        if let client = HIDEventSystemClients.passive() {
+            let services = IOHIDEventSystemClientCopyServices(client) as? [IOHIDServiceClient] ?? []
+            for service in services {
+                if let original = originals.kept(for: registryID(of: service)) { put(original, on: service) }
+            }
+            log.notice("Put back the mouse settings a previous run left")
+        }
+        UserDefaults.standard.removeObject(forKey: originalsKey)
     }
 
     private func set(_ service: IOHIDServiceClient, _ key: String, _ value: CFTypeRef) {

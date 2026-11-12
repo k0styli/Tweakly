@@ -114,3 +114,25 @@ import Testing
         #expect(state.isPending(change: 5))
     }
 }
+
+@Suite struct FinderEscapeTests {
+    @Test func inAWindowOfFilesEscapeCancels() {
+        #expect(FinderEscape.isAboutFiles(focusRole: "AXOutline", windowSubrole: "AXStandardWindow"))
+    }
+
+    @Test func onTheDesktopEscapeCancels() {
+        // Finder with only the desktop has no focused window.
+        #expect(FinderEscape.isAboutFiles(focusRole: "AXGroup", windowSubrole: nil))
+    }
+
+    @Test func quickLookAndOtherPanelsOnlyClose() {
+        #expect(!FinderEscape.isAboutFiles(focusRole: "AXGroup", windowSubrole: "AXQuickLookPreviewPanel"))
+        #expect(!FinderEscape.isAboutFiles(focusRole: "AXButton", windowSubrole: "AXDialog"))
+        #expect(!FinderEscape.isAboutFiles(focusRole: nil, windowSubrole: "AXFloatingWindow"))
+    }
+
+    @Test func anOpenMenuOnlyCloses() {
+        #expect(!FinderEscape.isAboutFiles(focusRole: "AXMenu", windowSubrole: "AXStandardWindow"))
+        #expect(!FinderEscape.isAboutFiles(focusRole: "AXMenuItem", windowSubrole: nil))
+    }
+}

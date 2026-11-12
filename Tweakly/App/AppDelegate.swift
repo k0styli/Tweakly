@@ -252,6 +252,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard isOn else {
             mouse?.stop()
             mouse = nil
+            // A run that ended without stopping the tweak may have left its values on the mice.
+            MouseDevices.restoreLeftovers()
             return
         }
         if mouse == nil { mouse = MouseTweak() }

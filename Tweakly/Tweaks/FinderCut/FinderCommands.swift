@@ -21,6 +21,37 @@ nonisolated enum FinderCommands {
         }
     }
 
+    /// As `readFocus`, and whether Escape there is about the files rather than Quick Look, a menu or a panel.
+    static func readEscape(pid: pid_t, then: @escaping @MainActor @Sendable (FinderFocus, pid_t, Bool) -> Void) {
+        queue.async {
+            let panel = panelHoldingKeyboard(besides: pid)
+            let role = panel == nil ? focusedRole(pid: pid) : nil
+            let focus = panel == nil ? FinderFocus(role: role) : .text
+            let aboutFiles =
+                panel == nil
+                && FinderEscape.isAboutFiles(
+                    focusRole: role, windowSubrole: focusedWindowSubrole(pid: pid))
+            DispatchQueue.main.async { MainActor.assumeIsolated { then(focus, panel ?? pid, aboutFiles) } }
+        }
+    }
+
+    private static func focusedWindowSubrole(pid: pid_t) -> String? {
+        let finder = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(finder, answerTimeout)
+        var window: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(finder, kAXFocusedWindowAttribute as CFString, &window) == .success,
+            let window, CFGetTypeID(window) == AXUIElementGetTypeID()
+        else { return nil }
+        let element = unsafeDowncast(window, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(element, answerTimeout)
+        var subrole: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole) == .success else {
+            // A window that cannot say what it is counts as not one of files: Escape then only does what it does.
+            return "AXUnknown"
+        }
+        return subrole as? String ?? "AXUnknown"
+    }
+
     static func pressKey(_ keyCode: Int, flags: CGEventFlags, pid: pid_t) {
         queue.async {
             for isDown in [true, false] {

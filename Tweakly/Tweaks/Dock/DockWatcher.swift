@@ -30,22 +30,15 @@ final class DockWatcher {
     private var list: AXUIElement?
     private var retry: DispatchWorkItem?
     private var attempt = 0
-    private var launchObserver: NSObjectProtocol?
+    /// While the Dock cannot be found: the Dock is an LSUIElement app, which `didLaunchApplicationNotification` is never
+    /// posted for, so its relaunch shows only as a change of the running apps.
+    private var launchObservation: NSKeyValueObservation?
     /// The running app behind each icon's file, so a hover does not go through every running app.
     private var apps: [URL: NSRunningApplication] = [:]
 
     /// Starts watching, and keeps looking for the Dock if it cannot be reached yet: at login it may still be coming up,
     /// or busy past the messaging timeout, and giving up then would leave the tweak dead until some setting changed.
     func start() {
-        if launchObserver == nil {
-            launchObserver = NSWorkspace.shared.notificationCenter.addObserver(
-                forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main
-            ) { [weak self] note in
-                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                guard app?.bundleIdentifier == "com.apple.dock" else { return }
-                MainActor.assumeIsolated { self?.reattach() }
-            }
-        }
         guard !attach() else { return }
         Self.log.notice("The Dock cannot be reached yet; looking for it again")
         scheduleRetry()
@@ -55,8 +48,7 @@ final class DockWatcher {
         retry?.cancel()
         retry = nil
         detach()
-        if let launchObserver { NSWorkspace.shared.notificationCenter.removeObserver(launchObserver) }
-        launchObserver = nil
+        launchObservation = nil
         apps = [:]
         current = nil
     }
@@ -67,9 +59,14 @@ final class DockWatcher {
         else { return false }
         let app = AXUIElementCreateApplication(dock.processIdentifier)
         AXUIElementSetMessagingTimeout(app, Self.messagingTimeout)
+        // An element made from another does not take its timeout, and a Dock busy at login could hold the agent's main
+        // thread for the system's 6 s on each.
         guard
             let children = Self.attribute(kAXChildrenAttribute, of: app) as? [AXUIElement],
-            let list = children.first(where: { Self.attribute(kAXRoleAttribute, of: $0) as? String == kAXListRole })
+            let list = children.first(where: { child in
+                AXUIElementSetMessagingTimeout(child, Self.messagingTimeout)
+                return Self.attribute(kAXRoleAttribute, of: child) as? String == kAXListRole
+            })
         else { return false }
         AXUIElementSetMessagingTimeout(list, Self.messagingTimeout)
         var created: AXObserver?
@@ -92,6 +89,7 @@ final class DockWatcher {
         observer = created
         self.list = list
         attempt = 0
+        launchObservation = nil
         return true
     }
 
@@ -125,6 +123,7 @@ final class DockWatcher {
     private func scheduleRetry() {
         guard attempt < Self.retryDelays.count else {
             Self.log.error("The Dock could not be found again; waiting for it to launch")
+            waitForLaunch()
             return
         }
         let delay = Self.retryDelays[attempt]
@@ -138,6 +137,18 @@ final class DockWatcher {
         }
         retry = work
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// Nothing is asked again from here on: a Dock that launches shows as a new running app, and that is when it is
+    /// looked for once more, with the retries that follow a restart.
+    private func waitForLaunch() {
+        guard launchObservation == nil else { return }
+        launchObservation = NSWorkspace.shared.observe(\.runningApplications, options: [.new]) {
+            [weak self] _, change in
+            let launched = change.newValue?.contains { $0.bundleIdentifier == "com.apple.dock" } ?? false
+            guard launched else { return }
+            DispatchQueue.main.async { MainActor.assumeIsolated { self?.reattach() } }
+        }
     }
 
     private func report(_ icon: DockIcon?) {
