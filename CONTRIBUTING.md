@@ -1,6 +1,6 @@
 # Contributing to Tweakly
 
-Thanks for wanting to help. The most useful things right now are clear bug reports, ideas that fit the app, and translations.
+Thanks for wanting to help. The most useful things right now are clear bug reports, ideas that fit the app, and translations. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Issues
 
