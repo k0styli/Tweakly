@@ -95,6 +95,7 @@ struct VolumeMixerPageView: View {
                         reload()
                     }
                 }
+                Button("Permissions…") { router.open(.permissions) }
             }
         }
         .formStyle(.grouped)

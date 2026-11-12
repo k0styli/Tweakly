@@ -21,6 +21,7 @@ struct PermissionsPageView: View {
             Section {
                 AccessRow(
                     symbol: "accessibility", title: Text("Accessibility"),
+                    note: Text("The windows of other apps, the keys and the mouse."),
                     uses: [.windowSwitcher, .dock, .mouse, .finderCut, .languageSwitch, .keyboardCleaning],
                     waiting: access.accessibility ? [] : waitingForAccessibility
                 ) {

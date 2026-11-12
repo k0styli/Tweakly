@@ -286,6 +286,11 @@ final class ProcessNameCell: NSTableCellView {
     private static let triangleWidth: CGFloat = 16
     private static let iconSize: CGFloat = 16
     private static let memberIndent: CGFloat = 20
+    private static let truncating: NSParagraphStyle = {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingTail
+        return style
+    }()
 
     let disclosure = NSButton()
     private let icon = NSImageView()
@@ -337,6 +342,9 @@ final class ProcessNameCell: NSTableCellView {
                 NSAttributedString(
                     string: " (\(count))", attributes: [.foregroundColor: countColour, .font: ProcessTextCell.font]))
         }
+        // An attributed string brings its own paragraph style, which would otherwise cut a long name off mid-letter
+        // instead of ending it with "…" as the label's own setting says.
+        text.addAttribute(.paragraphStyle, value: Self.truncating, range: NSRange(location: 0, length: text.length))
         label.attributedStringValue = text
     }
 

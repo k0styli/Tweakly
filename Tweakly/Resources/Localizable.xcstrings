@@ -10968,6 +10968,12 @@
             "state": "translated",
             "value": "如果Tweakly在系统设置中已显示为打开，请将其关闭后再打开。"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If Tweakly already appears turned on in System Settings, turn it off and on again."
+          }
         }
       }
     },
@@ -19148,6 +19154,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "任务管理器"
+          }
+        }
+      }
+    },
+    "The windows of other apps, the keys and the mouse.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Fenster anderer Apps, die Tasten und die Maus."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ほかのアプリのウインドウ、キー、マウス。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Окна других приложений, клавиши и мышь."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "其他App的窗口、按键和鼠标。"
           }
         }
       }
