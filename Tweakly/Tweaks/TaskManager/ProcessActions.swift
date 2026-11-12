@@ -115,7 +115,10 @@ enum ProcessActions {
                 ? String(localized: "Unsaved changes will be lost.")
                 : String(localized: "An app can ask to save changes first. Force Quit ends it at once."))
         if logsOut { details.append(String(localized: "You will be logged out of your account.")) }
-        alert.informativeText = details.joined(separator: " ")
+        // Japanese and Chinese end a sentence with a full-width stop and put no space after it.
+        let language = Bundle.main.preferredLocalizations.first ?? ""
+        let spaced = !(language.hasPrefix("ja") || language.hasPrefix("zh"))
+        alert.informativeText = details.joined(separator: spaced ? " " : "")
         if force {
             alert.addButton(withTitle: String(localized: "Force Quit"))
         } else {

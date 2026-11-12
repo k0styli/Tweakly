@@ -4,5 +4,11 @@
 <dict>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>The volume mixer plays each app at the volume and on the output you choose for it. Nothing is recorded or kept.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Tweakly makes the new files you ask for with New File in Finder’s shortcut menu.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Tweakly makes the new files you ask for with New File in Finder’s shortcut menu.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Tweakly makes the new files you ask for with New File in Finder’s shortcut menu.</string>
 </dict>
 </plist>

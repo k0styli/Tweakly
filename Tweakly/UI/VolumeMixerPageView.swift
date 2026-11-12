@@ -66,6 +66,8 @@ struct VolumeMixerPageView: View {
                     ) {
                         if index == 0 { appsTitle }
                     }
+                    // As the popover's section below: rules wait while the mixer is off, and nothing says so here.
+                    .disabled(!settings.volumeMixerEnabled)
                 }
             }
             Section {
@@ -185,8 +187,9 @@ private struct AppRuleSection<Header: View>: View {
                         }
                     )
                     .labelsHidden()
+                    .accessibilityValue(Text(verbatim: VolumeLevel.shown(min(rule.volume, highest))))
                     // Always the share, so every app's slider is as long; whether it is muted is the switch below.
-                    Text(verbatim: "\(VolumeLevel.percent(min(rule.volume, highest))) %")
+                    Text(verbatim: VolumeLevel.shown(min(rule.volume, highest)))
                         .monospacedDigit()
                         .foregroundStyle(rule.isMuted ? .tertiary : .secondary)
                         .frame(width: 44, alignment: .trailing)

@@ -36,6 +36,114 @@
           }
         }
       }
+    },
+    "NSDesktopFolderUsageDescription": {
+      "comment": "Shown by macOS when New File first writes in this folder",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly erstellt die neuen Dateien, die du mit „Neue Datei“ im Kontextmenü des Finders anforderst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly makes the new files you ask for with New File in Finder’s shortcut menu."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderのショートカットメニューで“新規ファイル”を選択したときに、Tweaklyが新しいファイルを作成します。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly создаёт новые файлы, когда вы выбираете «Новый файл» в контекстном меню Finder."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当你在访达快捷菜单中选择“新建文件”时，Tweakly会创建新文件。"
+          }
+        }
+      }
+    },
+    "NSDocumentsFolderUsageDescription": {
+      "comment": "Shown by macOS when New File first writes in this folder",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly erstellt die neuen Dateien, die du mit „Neue Datei“ im Kontextmenü des Finders anforderst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly makes the new files you ask for with New File in Finder’s shortcut menu."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderのショートカットメニューで“新規ファイル”を選択したときに、Tweaklyが新しいファイルを作成します。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly создаёт новые файлы, когда вы выбираете «Новый файл» в контекстном меню Finder."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当你在访达快捷菜单中选择“新建文件”时，Tweakly会创建新文件。"
+          }
+        }
+      }
+    },
+    "NSDownloadsFolderUsageDescription": {
+      "comment": "Shown by macOS when New File first writes in this folder",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly erstellt die neuen Dateien, die du mit „Neue Datei“ im Kontextmenü des Finders anforderst."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly makes the new files you ask for with New File in Finder’s shortcut menu."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderのショートカットメニューで“新規ファイル”を選択したときに、Tweaklyが新しいファイルを作成します。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tweakly создаёт новые файлы, когда вы выбираете «Новый файл» в контекстном меню Finder."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当你在访达快捷菜单中选择“新建文件”时，Tweakly会创建新文件。"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

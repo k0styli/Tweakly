@@ -586,7 +586,7 @@ private struct FanCurveChart: View {
         AxisMarks(values: .stride(by: 10)) { value in
             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 3]))
             AxisValueLabel {
-                if let degrees = value.as(Double.self) { Text(verbatim: "\(Int(degrees))°") }
+                if let degrees = value.as(Double.self) { Text(verbatim: "\(Format.degrees(celsius: degrees))°") }
             }
         }
     }
@@ -668,6 +668,12 @@ private struct FanCurvePointRows: View {
     }
 
     var body: some View {
+        // The chart is for the pointer; with the keyboard or VoiceOver a point is chosen and added here.
+        Picker("Point", selection: $selected) {
+            ForEach(curve.points.indices, id: \.self) { index in
+                Text(String(localized: "\(String(index + 1)) of \(String(curve.points.count))")).tag(index)
+            }
+        }
         LabeledContent("Temperature") {
             value(Format.temperature(celsius: point.temperature)) {
                 Stepper(
@@ -689,16 +695,46 @@ private struct FanCurvePointRows: View {
             }
         }
         LabeledContent {
-            Button("Remove") {
-                var edited = curve
-                edited.remove(pointAt: index)
-                curve = edited
-                selected = max(index - 1, 0)
+            HStack {
+                Button("Add Point", action: addPoint)
+                    .disabled(newPoint == nil)
+                Button("Remove") {
+                    var edited = curve
+                    edited.remove(pointAt: index)
+                    curve = edited
+                    selected = max(index - 1, 0)
+                }
+                .disabled(curve.points.count <= FanCurve.fewestPoints)
             }
-            .disabled(curve.points.count <= FanCurve.fewestPoints)
         } label: {
-            Text("Remove Point")
+            Text("Points")
             Text("A curve needs at least two points.")
+        }
+    }
+
+    /// Halfway to the next point, or a little hotter than the last one at its speed.
+    private var newPoint: FanCurvePoint? {
+        guard curve.points.count < FanCurve.mostPoints, curve.points.indices.contains(index) else { return nil }
+        let point = curve.points[index]
+        if index + 1 < curve.points.count {
+            let next = curve.points[index + 1]
+            let temperature = ((point.temperature + next.temperature) / 2).rounded()
+            guard temperature - point.temperature >= FanCurve.smallestGap,
+                next.temperature - temperature >= FanCurve.smallestGap
+            else { return nil }
+            return FanCurvePoint(temperature: temperature, percent: ((point.percent + next.percent) / 2).rounded())
+        }
+        let temperature = min(point.temperature + 5, FanCurve.temperatures.upperBound)
+        guard temperature - point.temperature >= FanCurve.smallestGap else { return nil }
+        return FanCurvePoint(temperature: temperature, percent: point.percent)
+    }
+
+    private func addPoint() {
+        guard let newPoint else { return }
+        var edited = curve
+        if let added = edited.add(newPoint) {
+            curve = edited
+            selected = added
         }
     }
 

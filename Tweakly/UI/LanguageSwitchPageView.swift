@@ -47,7 +47,7 @@ struct LanguageSwitchPageView: View {
             Section {
                 LabeledContent("Previous Input Source") {
                     Text(verbatim: "fn")
-                        .accessibilityLabel(Text(verbatim: "Function"))
+                        .accessibilityLabel(Text("Function", comment: "VoiceOver's name of the fn key"))
                 }
             } header: {
                 SectionTitle(

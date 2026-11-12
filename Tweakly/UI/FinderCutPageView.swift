@@ -43,11 +43,12 @@ struct FinderCutPageView: View {
         .formStyle(.grouped)
     }
 
-    /// The keys as they are printed on the keyboard, so they read the same in any language. VoiceOver gets their names.
-    private func keyRow(_ title: LocalizedStringKey, key: String, spoken: String) -> some View {
+    /// The keys as they are printed on the keyboard, so they read the same in any language. VoiceOver gets their names,
+    /// in the words of the language it speaks.
+    private func keyRow(_ title: LocalizedStringKey, key: String, spoken: LocalizedStringKey) -> some View {
         LabeledContent(title) {
             Text(verbatim: key)
-                .accessibilityLabel(Text(verbatim: spoken))
+                .accessibilityLabel(Text(spoken))
         }
     }
 

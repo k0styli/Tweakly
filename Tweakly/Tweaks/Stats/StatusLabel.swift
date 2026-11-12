@@ -103,7 +103,7 @@ struct StatusLabelContent: Equatable {
             spoken = batterySpoken(percent: percent, isCharging: isCharging)
         case .fan(let rpm, _, let temperature):
             if options.fanShowsTemperature {
-                text = temperature.map { "\($0)°" } ?? "—"
+                text = temperature.map { "\(Format.degrees(celsius: Double($0)))°" } ?? "—"
             } else {
                 text = String(rpm)
                 spoken = fanSpoken(rpm: rpm)

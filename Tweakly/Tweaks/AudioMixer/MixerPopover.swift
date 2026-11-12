@@ -69,7 +69,8 @@ final class MixerViewController: NSViewController {
     var onResize: (() -> Void)?
 
     private let header = DetailHeaderView(title: String(localized: "Sound"), widestValue: "100 %")
-    private let outputVolume = MixerVolumeRow(symbol: "speaker.wave.3.fill", mutedSymbol: "speaker.slash.fill")
+    private let outputVolume = MixerVolumeRow(
+        name: String(localized: "Volume"), symbol: "speaker.wave.3.fill", mutedSymbol: "speaker.slash.fill")
     private let outputsColumn = NSStackView.detailColumn(spacing: 0)
     private let appsColumn = NSStackView.detailColumn(spacing: 8)
     private let appsNote = NSTextField.detailLabel(color: .secondaryLabelColor)
@@ -77,7 +78,8 @@ final class MixerViewController: NSViewController {
         title: String(localized: "Allow Recording System Audio…"), target: self, action: #selector(openPrivacy))
     private let inputSection = NSStackView.detailColumn(spacing: 6)
     private let inputMenu = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let inputVolume = MixerVolumeRow(symbol: "mic.fill", mutedSymbol: "mic.slash.fill")
+    private let inputVolume = MixerVolumeRow(
+        name: String(localized: "Input Volume"), symbol: "mic.fill", mutedSymbol: "mic.slash.fill")
     private var root: DetailScrollRoot?
 
     private var outputs: [AudioDevice] = []
@@ -267,7 +269,7 @@ final class MixerViewController: NSViewController {
         let name = outputs.first { $0.id == outputID }?.name ?? String(localized: "No Output")
         #if TWEAKLY_AUTOMATION
             if DemoData.isOn {
-                header.update(subtitle: name, value: "\(VolumeLevel.percent(DemoMixer.outputVolume)) %")
+                header.update(subtitle: name, value: VolumeLevel.shown(DemoMixer.outputVolume))
                 outputVolume.show(volume: DemoMixer.outputVolume, isMuted: false, canChange: true)
                 inputVolume.show(volume: DemoMixer.inputVolume, isMuted: false, canChange: true)
                 return
@@ -278,7 +280,7 @@ final class MixerViewController: NSViewController {
             let muted = AudioSystem.isMuted(id, input: false) ?? false
             header.update(
                 subtitle: name,
-                value: muted ? String(localized: "Muted") : volume.map { "\(VolumeLevel.percent($0)) %" } ?? "—")
+                value: muted ? String(localized: "Muted") : volume.map(VolumeLevel.shown) ?? "—")
             outputVolume.show(
                 volume: volume ?? 1, isMuted: muted, canChange: AudioSystem.canSetVolume(of: id, input: false))
         } else {
@@ -473,6 +475,11 @@ final class SnappingSlider: NSSlider {
         return mark
     }
 
+    // VoiceOver says the share as the row shows it, not the slider's own 0 to 2. It asks on the main thread.
+    nonisolated override func accessibilityValue() -> Any? {
+        MainActor.assumeIsolated { VolumeLevel.shown(doubleValue) }
+    }
+
     /// Not while the knob is held, or the echo of the change would fight the pointer. This slider's own, so that a
     /// click elsewhere in the popover, on an output say, still lets the others follow.
     private(set) var isHeld = false
@@ -494,10 +501,12 @@ final class MixerVolumeRow: NSView {
     var onChange: ((Double) -> Void)?
     var onToggleMute: (() -> Void)?
 
-    init(symbol: String, mutedSymbol: String) {
+    /// - Parameter name: What VoiceOver calls the slider, which has no title of its own on screen.
+    init(name: String, symbol: String, mutedSymbol: String) {
         self.symbol = symbol
         self.mutedSymbol = mutedSymbol
         super.init(frame: .zero)
+        slider.setAccessibilityLabel(name)
         translatesAutoresizingMaskIntoConstraints = false
         button.target = self
         button.action = #selector(toggle)
@@ -632,6 +641,10 @@ final class MixerAppRow: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.imageScaling = .scaleProportionallyUpOrDown
+        // The name beside it says the same.
+        icon.setAccessibilityElement(false)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.group)
         muteButton.target = self
         muteButton.action = #selector(toggleMute)
         slider.target = self
@@ -676,11 +689,14 @@ final class MixerAppRow: NSView {
         let shown = min(rule.volume, highest)
         slider.setHighest(highest)
         if !slider.isHeld, abs(slider.doubleValue - shown) > 0.001 { slider.doubleValue = shown }
-        percent.setIfChanged(rule.isMuted ? String(localized: "Muted") : "\(VolumeLevel.percent(shown)) %")
+        percent.setIfChanged(rule.isMuted ? String(localized: "Muted") : VolumeLevel.shown(shown))
         icon.alphaValue = app.isPlaying ? 1 : 0.5
         muteButton.show(
-            symbol: rule.isMuted || shown < 0.001 ? "speaker.slash.fill" : "speaker.wave.2.fill", isMuted: rule.isMuted)
+            symbol: rule.isMuted || shown < 0.001 ? "speaker.slash.fill" : "speaker.wave.2.fill", isMuted: rule.isMuted,
+            of: app.owner.name)
         slider.setAccessibilityLabel(app.owner.name)
+        // The row is where VoiceOver finds the app's menu of outputs, as a right click does.
+        setAccessibilityLabel(app.owner.name)
     }
 
     /// The app's icon, or for a process with no app, such as a command-line player, its file's, as Activity Monitor
@@ -736,7 +752,7 @@ final class MixerAppRow: NSView {
 
     @objc private func moved() {
         let volume = slider.snappedValue()
-        percent.setIfChanged("\(VolumeLevel.percent(volume)) %")
+        percent.setIfChanged(VolumeLevel.shown(volume))
         onChange?(bundleID) {
             $0.volume = volume
             $0.isMuted = false
@@ -760,7 +776,7 @@ final class MixerAppRow: NSView {
 
 /// The speaker or microphone before a slider, which turns the sound off and on.
 private final class MuteButton: NSButton {
-    private var shown: (symbol: String, isMuted: Bool)?
+    private var shown: (symbol: String, isMuted: Bool, app: String?)?
 
     static func make() -> MuteButton {
         let button = MuteButton(image: NSImage(), target: nil, action: nil)
@@ -773,11 +789,25 @@ private final class MuteButton: NSButton {
 
     /// Makes the picture only when it changes: a system symbol costs about 2M instructions, and the rows are shown
     /// again each time a slider moves.
-    func show(symbol: String, isMuted: Bool) {
-        guard shown?.symbol != symbol || shown?.isMuted != isMuted else { return }
-        shown = (symbol, isMuted)
-        let label = isMuted ? String(localized: "Unmute") : String(localized: "Mute")
+    /// - Parameter app: whose sound it is, for VoiceOver, where a row of apps has a button each.
+    func show(symbol: String, isMuted: Bool, of app: String? = nil) {
+        guard shown?.symbol != symbol || shown?.isMuted != isMuted || shown?.app != app else { return }
+        shown = (symbol, isMuted, app)
+        let label =
+            switch (isMuted, app) {
+            case (true, let app?): String(localized: "Unmute \(app)")
+            case (false, let app?): String(localized: "Mute \(app)")
+            case (true, nil): String(localized: "Unmute")
+            case (false, nil): String(localized: "Mute")
+            }
         image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
         setAccessibilityLabel(label)
+    }
+}
+
+extension VolumeLevel {
+    /// A volume as the region writes a percentage, "50 %" in Russian and German, "50%" in English, up to 200 %.
+    static func shown(_ volume: Double) -> String {
+        Format.percent(Double(percent(volume)) / 100)
     }
 }

@@ -359,6 +359,8 @@ struct LiveWallpaperPageView: View {
                 }
         }
         .help(Self.summary(of: entry.wallpaper))
+        // The heart on the tile is a picture VoiceOver skips, so it says so here.
+        .accessibilityValue(library.isFavourite(id) ? Text("Favorites") : Text(verbatim: ""))
         .contextMenu {
             Button("Set as Wallpaper") { choose(id) }
             if library.isFavourite(id) {

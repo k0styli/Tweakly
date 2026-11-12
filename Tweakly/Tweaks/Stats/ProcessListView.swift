@@ -94,6 +94,8 @@ private final class ProcessRow: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.imageScaling = .scaleProportionallyUpOrDown
+        // The name beside it says which process it is; VoiceOver would only say "image" first.
+        iconView.setAccessibilityElement(false)
         [placeholder, iconView, nameLabel, valueLabel].forEach(addSubview)
         valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)

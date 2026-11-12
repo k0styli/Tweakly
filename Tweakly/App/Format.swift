@@ -166,6 +166,17 @@ enum Format {
         temperatureFormatter.string(from: Measurement(value: celsius, unit: UnitTemperature.celsius))
     }
 
+    /// The unit the region chose in Language & Region, which `temperature(celsius:)` follows too.
+    private static let regionTemperatureUnit = UnitTemperature(forLocale: .current)
+
+    /// Whole degrees in the region's unit, for where only a number and a degree sign fit: the menu bar and a chart's
+    /// axis. In Celsius there, beside Fahrenheit in the popovers, 52° and 126° would be the same heat.
+    static func degrees(celsius: Double) -> Int {
+        let value = Measurement(value: celsius, unit: UnitTemperature.celsius).converted(to: regionTemperatureUnit)
+            .value
+        return value.isFinite ? Int(value.rounded()) : 0
+    }
+
     static func watts(_ value: Double) -> String {
         // Small draws would otherwise round down to a reading of nothing.
         String(localized: "\(decimal(value, digits: value < 1 ? 2 : 1)) W")

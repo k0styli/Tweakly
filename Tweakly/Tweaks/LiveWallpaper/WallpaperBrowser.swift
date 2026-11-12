@@ -260,9 +260,9 @@ final class WallpaperBrowserController: NSObject, NSWindowDelegate, NSToolbarDel
     ) -> NSToolbarItem? {
         switch identifier {
         case Self.navigationItem:
-            let images = ["chevron.left", "chevron.right"].compactMap {
-                NSImage(systemSymbolName: $0, accessibilityDescription: nil)
-            }
+            let images = [
+                ("chevron.left", String(localized: "Back")), ("chevron.right", String(localized: "Forward")),
+            ].compactMap { NSImage(systemSymbolName: $0.0, accessibilityDescription: $0.1) }
             let group = NSToolbarItemGroup(
                 itemIdentifier: identifier, images: images, selectionMode: .momentary,
                 labels: [String(localized: "Back"), String(localized: "Forward")], target: self,

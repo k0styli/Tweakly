@@ -9,6 +9,12 @@
             "value": "Pfad kopieren"
           }
         },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Path"
+          }
+        },
         "ja": {
           "stringUnit": {
             "state": "translated",
@@ -35,6 +41,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pfade kopieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Paths"
           }
         },
         "ja": {
@@ -65,6 +77,12 @@
             "value": "Neue Datei"
           }
         },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New File"
+          }
+        },
         "ja": {
           "stringUnit": {
             "state": "translated",
@@ -91,6 +109,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "In Terminal öffnen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open in Terminal"
           }
         },
         "ja": {
@@ -120,6 +144,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Neue Datei"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "untitled file"
           }
         },
         "ja": {

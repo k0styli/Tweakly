@@ -502,6 +502,12 @@
             "state": "translated",
             "value": "系统速度的%lld%%"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% of the system’s speed"
+          }
         }
       }
     },
@@ -801,6 +807,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "0%是风扇所能达到的最低转速，并非停转。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0% is the slowest a fan can spin, not standing still."
           }
         }
       }
@@ -1557,6 +1569,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "延长1分钟"
+          }
+        }
+      }
+    },
+    "Add Point": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Punkt hinzufügen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポイントを追加"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить точку"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加点"
           }
         }
       }
@@ -2765,6 +2805,12 @@
             "state": "translated",
             "value": "充电时以颜色显示电池"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color the Battery While Charging"
+          }
         }
       }
     },
@@ -2820,6 +2866,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "Command-Tab显示每个窗口的预览，程序坞图标上方也会显示窗口。"
+          }
+        }
+      }
+    },
+    "Command-V": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Befehl-V"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command＋V"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command-V"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command-V"
+          }
+        }
+      }
+    },
+    "Command-X": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Befehl-X"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command＋X"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command-X"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command-X"
           }
         }
       }
@@ -2953,7 +3055,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Размер контейнеров виден только с полным доступом к диску."
+            "value": "Размер контейнеров виден только с разрешением «Доступ к диску»."
           }
         },
         "zh-Hans": {
@@ -3199,7 +3301,7 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ファイルのカットとペーストに加え、ショートカットメニューに「新規ファイル」、「パスをコピー」、「“ターミナル”で開く」を追加します。"
+            "value": "ファイルのカットとペーストに加え、ショートカットメニューから新規ファイルの作成、パスのコピー、“ターミナル”で開く操作ができます。"
           }
         },
         "ru": {
@@ -3830,6 +3932,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "紧急温度"
+          }
+        }
+      }
+    },
+    "Escape": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escape"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エスケープ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escape"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escape键"
           }
         }
       }
@@ -5043,7 +5173,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Полный доступ к диску…"
+            "value": "Доступ к диску…"
           }
         },
         "zh-Hans": {
@@ -5078,6 +5208,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "已充满电"
+          }
+        }
+      }
+    },
+    "Function": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funktionstaste"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファンクション"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Клавиша Fn"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "功能键"
           }
         }
       }
@@ -5502,6 +5660,34 @@
         }
       }
     },
+    "Input Volume": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingangslautstärke"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力音量"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Громкость на входе"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入音量"
+          }
+        }
+      }
+    },
     "Installed": {
       "localizations": {
         "de": {
@@ -5750,6 +5936,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保留图标的颜色"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the Icon’s Colors"
           }
         }
       }
@@ -6136,7 +6328,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS защищает данные, которые приложения из App Store и некоторые другие хранят в своих контейнерах. Чтобы Tweakly видел их размер и перемещал их в Корзину без вопросов macOS, добавьте Tweakly в «Полный доступ к диску» в Системных настройках: нажмите «+» и выберите Tweakly в папке «Программы»."
+            "value": "macOS защищает данные, которые приложения из App Store и некоторые другие хранят в своих контейнерах. Чтобы Tweakly видел их размер и перемещал их в Корзину без вопросов macOS, добавьте Tweakly в раздел «Доступ к диску» в Системных настройках: нажмите «+» и выберите Tweakly в папке «Программы»."
           }
         },
         "zh-Hans": {
@@ -6467,6 +6659,34 @@
         }
       }
     },
+    "Mute %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ton aus: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消音：%@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выключить звук: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "静音：%@"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "de": {
@@ -6743,6 +6963,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "图标旁显示数字"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number Beside Icon"
           }
         }
       }
@@ -7052,6 +7278,12 @@
             "state": "translated",
             "value": "否则它将采用菜单栏的单一颜色，与系统图标一样。"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otherwise it takes the menu bar’s one color, as the system’s icons do."
+          }
         }
       }
     },
@@ -7135,6 +7367,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "窗口画面。没有此权限时，缩略图显示App图标。"
+          }
+        }
+      }
+    },
+    "Point": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Punkt"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポイント"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Точка"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点"
           }
         }
       }
@@ -7699,34 +7959,6 @@
         }
       }
     },
-    "Remove Point": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Punkt entfernen"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ポイントを削除"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Удалить точку"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "移除点"
-          }
-        }
-      }
-    },
     "Remove the fan helper?": {
       "localizations": {
         "de": {
@@ -7947,6 +8179,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Safari浏览器、访达和Firefox无法识别侧边按钮，因此会改为接收触控板的轻扫手势。其他App和游戏则照常接收按钮。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safari, Finder and Firefox do not know the side buttons, so they get the trackpad’s swipe instead. Other apps and games get the buttons as they are."
           }
         }
       }
@@ -8311,6 +8549,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "已在Tweakly设置中设定。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set in Tweakly’s settings."
           }
         }
       }
@@ -10662,6 +10906,12 @@
             "state": "translated",
             "value": "图标和数值"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon and Value"
+          }
         }
       }
     },
@@ -11832,6 +12082,12 @@
             "state": "translated",
             "value": "名称和数值"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name and Value"
+          }
         }
       }
     },
@@ -12160,7 +12416,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открыть Настройки…"
+            "value": "Открыть настройки…"
           }
         },
         "zh-Hans": {
@@ -14497,6 +14753,12 @@
             "state": "translated",
             "value": "更新间隔"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Every"
+          }
         }
       }
     },
@@ -14692,6 +14954,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "仅数值"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Value Only"
           }
         }
       }
@@ -14937,7 +15205,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Без данных в контейнерах: для них нужен полный доступ к диску"
+            "value": "Без данных в контейнерах: для них нужен «Доступ к диску»"
           }
         },
         "zh-Hans": {
@@ -15113,6 +15381,12 @@
             "state": "translated",
             "value": "仅图标"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon Only"
+          }
         }
       }
     },
@@ -15140,6 +15414,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "填充式图标"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filling Icon"
           }
         }
       }
@@ -15197,6 +15477,12 @@
             "state": "translated",
             "value": "带数字的圆环"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ring with Number"
+          }
         }
       }
     },
@@ -15224,6 +15510,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "图标和柱条"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon and Column"
           }
         }
       }
@@ -15253,6 +15545,12 @@
             "state": "translated",
             "value": "图标和信号格"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon and Signal Bars"
+          }
         }
       }
     },
@@ -15280,6 +15578,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "图标和折线图"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon and Line Chart"
           }
         }
       }
@@ -15309,6 +15613,12 @@
             "state": "translated",
             "value": "图标和柱状图"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon and Bar Chart"
+          }
         }
       }
     },
@@ -15337,6 +15647,12 @@
             "state": "translated",
             "value": "名称和横条"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name and Bar"
+          }
         }
       }
     },
@@ -15364,6 +15680,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "名称对齐"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name Alignment"
           }
         }
       }
@@ -15476,6 +15798,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "带数字的图标"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon with Number"
           }
         }
       }
@@ -16909,7 +17237,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Вид"
+            "value": "Тип"
           }
         },
         "zh-Hans": {
@@ -17121,7 +17449,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diese Datei enthält nichts, was angezeigt werden kann: Sie ist leer oder vollständig transparent."
+            "value": "Diese Datei enthält nichts, was angezeigt werden kann: sie ist leer oder vollständig transparent."
           }
         },
         "ja": {
@@ -18260,6 +18588,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "已暂停"
+          }
+        }
+      }
+    },
+    "Points": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Punkte"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポイント"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Точки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点"
           }
         }
       }
@@ -22062,6 +22418,34 @@
         }
       }
     },
+    "Unmute %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ton an: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消音解除：%@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включить звук: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消静音：%@"
+          }
+        }
+      }
+    },
     "Video": {
       "localizations": {
         "de": {
@@ -22762,25 +23146,25 @@
               "one": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Удалить %lld скачанные обои?"
+                  "value": "Удалить скачанные обои (%lld)?"
                 }
               },
               "few": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Удалить %lld скачанных обоев?"
+                  "value": "Удалить скачанные обои (%lld)?"
                 }
               },
               "many": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Удалить %lld скачанных обоев?"
+                  "value": "Удалить скачанные обои (%lld)?"
                 }
               },
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "Удалить %lld скачанных обоев?"
+                  "value": "Удалить скачанные обои (%lld)?"
                 }
               }
             }
@@ -23863,6 +24247,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "最高增强至200%"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boost Up to 200%"
           }
         }
       }
@@ -25704,7 +26094,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открыть настройки"
+            "value": "Открыть «Конфиденциальность и безопасность»"
           }
         },
         "zh-Hans": {

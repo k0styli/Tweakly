@@ -132,6 +132,8 @@ private final class SimpleRingCell: NSView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         image.translatesAutoresizingMaskIntoConstraints = false
+        // The ring's name says what it is.
+        image.setAccessibilityElement(false)
         image.contentTintColor = .labelColor
         let name = NSTextField.detailLabel(
             kind.title, font: .systemFont(ofSize: 10), color: .secondaryLabelColor, alignment: .center)
