@@ -99,7 +99,7 @@ struct ProcessIdentities {
         // launchd is everyone's parent in the end, and the kernel has none.
         let parent = identity(of: pid).parentPID
         if owner == nil, parent > 1, parent != pid { owner = app(owning: parent, depth: depth + 1) }
-        if owner == nil, let bundle = Self.outermostBundle(of: path(of: pid)) {
+        if owner == nil, let bundle = Self.appBundle(of: path(of: pid)) {
             owner = ProcessOwner(key: .app(bundle))
         }
         owners[pid] = owner ?? alone
@@ -110,6 +110,11 @@ struct ProcessIdentities {
     private mutating func app(owning pid: Int32, depth: Int) -> ProcessOwner? {
         let owner = owner(of: pid, depth: depth)
         return owner.bundlePath == nil ? nil : owner
+    }
+
+    /// Forgets the processes that have ended, and keeps the parents of the ones still listed.
+    mutating func forgetEnded() {
+        removeAll { kill($0, 0) != 0 && errno == ESRCH }
     }
 
     /// Forgets processes that are gone, and with them the parents looked up on the way to an app.
@@ -164,8 +169,20 @@ struct ProcessIdentities {
         }
     }
 
-    /// The outermost `.app` folder a path lies in. Helpers sit in apps inside the app, and it is the outer one that
-    /// people know.
+    /// The app a program in a bundle stands for: the outermost `.app`, as helpers sit in apps inside the app and it is
+    /// the outer one that people know, unless the program is an app of its own kept in an `Applications` folder inside
+    /// another, as Simulator and Instruments are inside Xcode. Each of those has its own Dock icon and quits by itself.
+    static func appBundle(of path: String?) -> String? {
+        guard let path, outermostBundle(of: path) != nil else { return nil }
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+        var end: Int?
+        for index in parts.indices where parts[index].hasSuffix(".app") {
+            if end == nil || parts[index - 1] == "Applications" { end = index }
+        }
+        return end.map { parts[...$0].joined(separator: "/") }
+    }
+
+    /// The outermost `.app` folder a path lies in.
     static func outermostBundle(of path: String?) -> String? {
         guard var path else { return nil }
         // A search byte by byte: Foundation's `range(of:)` took most of the time of grouping in the task manager.

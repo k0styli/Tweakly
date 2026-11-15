@@ -82,7 +82,7 @@ final class NetworkProcessSampler {
             // An app's processes count as one row, as in the other lists.
             var rows: [ProcessOwner.Key: Row] = [:]
             var order: [ProcessOwner.Key] = []
-            state.identities.removeAll { usage[$0] == nil }
+            state.identities.forgetEnded()
             for (pid, current) in usage.sorted(by: { $0.key < $1.key }) {
                 let owner = state.identities.owner(of: pid, fallbackName: current.name)
                 var row = rows[owner.key] ?? Row(owner: owner)

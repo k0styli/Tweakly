@@ -9,6 +9,7 @@ import Testing
     private static let editor = "/Applications/Editor.app"
     private static let safari = "/Applications/Safari.app"
     private static let parallels = "/Applications/Parallels Desktop.app"
+    private static let xcode = "/Applications/Xcode.app"
 
     private static let processes: [Int32: (identity: ProcessIdentity, path: String)] = [
         100: identity("Editor", editor + "/Contents/MacOS/Editor", parent: 1),
@@ -40,6 +41,11 @@ import Testing
         702: identity(
             "prl_vm_app", parallels + "/Contents/MacOS/Parallels VM.app/Contents/MacOS/prl_vm_app", parent: 701, user: 0
         ),
+        // An app of its own kept inside Xcode, started from the Dock.
+        800: identity(
+            "Simulator", xcode + "/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator",
+            parent: 1),
+        801: identity("Xcode", xcode + "/Contents/MacOS/Xcode", parent: 1),
         600: identity("ghost", "/usr/bin/ghost", parent: 601),
         601: identity("ghost", "/usr/bin/ghost", parent: 600),
     ]
@@ -126,6 +132,15 @@ import Testing
         #expect(owner.bundlePath == Self.parallels)
         #expect(identities.entry(for: owner, pids: [702, 701, 700]).canEnd)
         #expect(!identities.entry(for: owner, pids: [701, 702]).canEnd, "without the app's own process, only signals")
+    }
+
+    /// Simulator and Instruments are apps in their own right, with Dock icons, even though they live inside Xcode.
+    @Test func anAppKeptInsideAnotherIsItsOwn() {
+        var identities = identities()
+        #expect(identities.owner(of: 800).bundlePath == Self.xcode + "/Contents/Developer/Applications/Simulator.app")
+        #expect(identities.owner(of: 801).bundlePath == Self.xcode)
+        #expect(
+            identities.owner(of: 101).bundlePath == Self.editor, "a helper in Frameworks still counts towards its app")
     }
 
     @Test func thisAppCannotEndItself() {

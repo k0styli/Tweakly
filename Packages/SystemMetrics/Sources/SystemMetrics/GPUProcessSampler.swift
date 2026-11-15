@@ -40,7 +40,7 @@ final class GPUProcessSampler {
 
         let clients = Self.readClients(of: accelerator)
         defer { lastTimes = clients.mapValues(\.time) }
-        identities.removeAll { clients[$0] == nil }
+        identities.forgetEnded()
         guard hadBaseline, elapsed > 0 else { return ranking }
 
         // An app's processes count as one row, as in the other lists. Work in parallel can add up to more than the time

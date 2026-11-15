@@ -102,13 +102,15 @@ private final class EndProcessQuestion: NSObject {
     private let entry: ProcessEntry
     private let alert: NSAlert
     private let onClose: () -> Void
+    private var resignObserver: NSObjectProtocol?
 
     init(entry: ProcessEntry, onClose: @escaping () -> Void) {
         self.entry = entry
         self.onClose = onClose
         // A row that can be ended is the person's app, which quits by its own command, or the person's own processes, so
         // nothing of another user's gets a signal from here.
-        let logsOut = entry.bundlePath == nil && ["WindowServer", "loginwindow"].contains(entry.name)
+        // loginwindow is the person's own process and an app of its own, and ending it logs them out.
+        let logsOut = ["WindowServer", "loginwindow"].contains(entry.name)
         alert = ProcessActions.question(
             name: entry.name, processCount: entry.processCount, logsOut: logsOut, isSystem: false, force: false)
         super.init()
@@ -122,6 +124,13 @@ private final class EndProcessQuestion: NSObject {
     }
 
     func show() {
+        // The agent has no Dock icon to find the question by again, so going to another app cancels it, as a click
+        // outside the popover would have.
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        }
         if QuietScreen.mayActivate { NSApp.activate() }
         alert.window.center()
         #if TWEAKLY_AUTOMATION
@@ -142,6 +151,8 @@ private final class EndProcessQuestion: NSObject {
     }
 
     @objc func close() {
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        resignObserver = nil
         alert.window.orderOut(nil)
         // The agent came forward only for the question: the keyboard goes back to the app the person was using, unless
         // another window of the agent is still up.

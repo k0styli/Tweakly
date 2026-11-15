@@ -103,6 +103,7 @@ private final class ProcessRow: NSView {
     private var trackingArea: NSTrackingArea?
     private var isPointerInside = false
     private var isEndButtonShown = false
+    private var hasEndAction = false
     private var entry: ProcessEntry?
     private var shownName = ""
     private var shownCount = 0
@@ -236,16 +237,16 @@ private final class ProcessRow: NSView {
 
     private var canEnd: Bool { entry?.canEnd == true && onEnd != nil }
 
-    /// The button follows the pointer, and VoiceOver, which has no pointer to follow, gets the same as an action.
+    /// The button follows the pointer, and VoiceOver, which has no pointer to follow, gets the same as an action. The
+    /// action asks the row for its entry when used, so it is made only when the row starts or stops being one to end.
     private func updateEnding() {
-        if canEnd {
+        if canEnd != hasEndAction {
+            hasEndAction = canEnd
             let action = NSAccessibilityCustomAction(name: String(localized: "End Task")) { [weak self] in
                 self?.endClicked()
                 return true
             }
-            nameLabel.setAccessibilityCustomActions([action])
-        } else {
-            nameLabel.setAccessibilityCustomActions([])
+            nameLabel.setAccessibilityCustomActions(canEnd ? [action] : [])
         }
         setEndButtonShown(isPointerInside && canEnd)
     }
