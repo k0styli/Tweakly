@@ -787,6 +787,11 @@
                 guard stats != nil, let settings else { return }
                 settings.liveWallpaperEnabled = argument == "1"
                 ProcessEvents.post(.settingsChanged)
+            case "wallpaper-transition":
+                // none, dissolve, blur, zoom, wipe or fadeToBlack, as the page's picker sets it.
+                guard stats != nil, let settings, let transition = LoopTransition(rawValue: argument) else { return }
+                settings.liveWallpaperLoopTransition = transition
+                ProcessEvents.post(.settingsChanged)
             case "wallpaper-fit":
                 guard stats != nil, let settings, let fit = VideoFit(rawValue: argument) else { return }
                 settings.liveWallpaperAssignments.shared?.fit = fit

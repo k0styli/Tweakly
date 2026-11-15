@@ -161,6 +161,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         static let liveWallpaperPauseRules = "liveWallpaperPauseRules"
         static let liveWallpaperEconomy = "liveWallpaperEconomy"
         static let liveWallpaperPlaybackSize = "liveWallpaperPlaybackSize"
+        static let liveWallpaperLoopTransition = "liveWallpaperLoopTransition"
         static let liveWallpaperDownloadLimit = "liveWallpaperDownloadLimit"
         static let liveWallpaperStopReason = "liveWallpaperStopReason"
         static let launched = "hasLaunchedBefore"
@@ -380,6 +381,11 @@ enum AppTheme: String, CaseIterable, Identifiable {
         didSet { saved { $0.set(liveWallpaperPlaybackSize.rawValue, forKey: Key.liveWallpaperPlaybackSize) } }
     }
 
+    /// How a video goes from its end back to its start, see `LoopTransition`. None until someone picks one.
+    var liveWallpaperLoopTransition: LoopTransition {
+        didSet { saved { $0.set(liveWallpaperLoopTransition.rawValue, forKey: Key.liveWallpaperLoopTransition) } }
+    }
+
     /// How much downloaded videos may take, in bytes; nil for no limit. Added files never count.
     var liveWallpaperDownloadLimit: Int64? {
         didSet { saved { $0.set(liveWallpaperDownloadLimit ?? 0, forKey: Key.liveWallpaperDownloadLimit) } }
@@ -504,6 +510,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
         liveWallpaperPauseRules = Self.readJSON(Key.liveWallpaperPauseRules, defaults) ?? PauseRules()
         liveWallpaperEconomy = defaults.bool(forKey: Key.liveWallpaperEconomy)
         liveWallpaperPlaybackSize = Self.readPlaybackSize(defaults)
+        liveWallpaperLoopTransition = Self.readLoopTransition(defaults)
         liveWallpaperDownloadLimit = Self.readDownloadLimit(defaults)
         liveWallpaperStopReason = Self.readJSON(Key.liveWallpaperStopReason, defaults)
 
@@ -551,13 +558,15 @@ enum AppTheme: String, CaseIterable, Identifiable {
         liveWallpaperPauseRules = Self.readJSON(Key.liveWallpaperPauseRules, defaults) ?? PauseRules()
         liveWallpaperEconomy = defaults.bool(forKey: Key.liveWallpaperEconomy)
         liveWallpaperPlaybackSize = Self.readPlaybackSize(defaults)
+        liveWallpaperLoopTransition = Self.readLoopTransition(defaults)
         liveWallpaperDownloadLimit = Self.readDownloadLimit(defaults)
         liveWallpaperStopReason = Self.readJSON(Key.liveWallpaperStopReason, defaults)
     }
 
     /// For the process that plays, which only reads. Fresh from the disk each time, as another process wrote it.
     static func savedLiveWallpaper() -> (
-        enabled: Bool, assignments: DisplayAssignments, rules: PauseRules, economy: Bool, size: PlaybackSize
+        enabled: Bool, assignments: DisplayAssignments, rules: PauseRules, economy: Bool, size: PlaybackSize,
+        transition: LoopTransition
     ) {
         let defaults = UserDefaults.standard
         defaults.synchronize()
@@ -566,12 +575,17 @@ enum AppTheme: String, CaseIterable, Identifiable {
             readJSON(Key.liveWallpaperAssignments, defaults) ?? DisplayAssignments(),
             readJSON(Key.liveWallpaperPauseRules, defaults) ?? PauseRules(),
             defaults.bool(forKey: Key.liveWallpaperEconomy),
-            readPlaybackSize(defaults)
+            readPlaybackSize(defaults),
+            readLoopTransition(defaults)
         )
     }
 
     private static func readPlaybackSize(_ defaults: UserDefaults) -> PlaybackSize {
         defaults.string(forKey: Key.liveWallpaperPlaybackSize).flatMap(PlaybackSize.init(rawValue:)) ?? .display
+    }
+
+    private static func readLoopTransition(_ defaults: UserDefaults) -> LoopTransition {
+        defaults.string(forKey: Key.liveWallpaperLoopTransition).flatMap(LoopTransition.init(rawValue:)) ?? .none
     }
 
     /// Turns the tweak off from a process that holds no settings object, keeping the reason for the page.

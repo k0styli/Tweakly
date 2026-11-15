@@ -68,6 +68,9 @@ final class WallpaperAppDelegate: NSObject, NSApplicationDelegate {
                             "file": $0.choice.fileName, "fit": $0.choice.fit.rawValue, "hasPlayer": $0.hasPlayer,
                             "seconds": $0.playedSeconds, "playing": $0.playingFile, "economy": $0.isEconomy,
                             "size": $0.size.map { "\($0.width)x\($0.height)" } ?? "",
+                            "transition": $0.transition.rawValue, "transitionsShown": $0.transitionsShown,
+                            "inTransition": $0.isShowingTransition, "firstFrameUnder": $0.isFirstFrameUnder,
+                            "desktopPicture": $0.desktopPictureName,
                         ]
                     }
                     let object: [String: Any] = [
@@ -138,10 +141,12 @@ final class WallpaperAppDelegate: NSObject, NSApplicationDelegate {
             }
             if let display = displays[key] {
                 display.place(on: screen)
-                display.update(choice: choice, title: title, isEconomy: saved.economy, size: size)
+                display.update(
+                    choice: choice, title: title, isEconomy: saved.economy, size: size, transition: saved.transition)
             } else {
                 let display = DisplayWallpaper(
-                    key: key, screen: screen, choice: choice, title: title, isEconomy: saved.economy, size: size)
+                    key: key, screen: screen, choice: choice, title: title, isEconomy: saved.economy, size: size,
+                    transition: saved.transition)
                 display.onVisibilityChange = { [weak self] in self?.evaluate() }
                 display.onFailure = { [weak self] display, reason in self?.failed(display, reason) }
                 displays[key] = display

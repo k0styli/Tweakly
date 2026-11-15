@@ -248,7 +248,8 @@ struct LiveWallpaperPageView: View {
         .padding(.top, Self.rowPadding)
     }
 
-    /// How heavily wallpapers play: the size, with no larger than the display as the default, and economy mode, as the
+    /// How wallpapers play: the size, with no larger than the display as the default, economy mode, and the transition
+    /// from a video's end back to its start, none by default. The first two because the
     /// system's decoder costs most and follows the frame size and
     /// rate. Measured on a 4K video, its decoder held 199 MB at 3840×2160 and 104 MB at a MacBook Air's panel, and 179
     /// against 284 MB at 30 and 60 frames a second. A group of its own: beside the picture it made
@@ -277,6 +278,17 @@ struct LiveWallpaperPageView: View {
             }
             .disabled(!settings.liveWallpaperEnabled)
             .onChange(of: settings.liveWallpaperEconomy) { library.playbackChanged() }
+            Picker(selection: $settings.liveWallpaperLoopTransition) {
+                Text(Self.title(of: LoopTransition.none)).tag(LoopTransition.none)
+                Divider()
+                ForEach(LoopTransition.allCases.filter { $0 != .none }, id: \.self) { transition in
+                    Text(Self.title(of: transition)).tag(transition)
+                }
+            } label: {
+                Text("Loop Transition")
+                Text("Softens the jump from the end of a video back to its start.")
+            }
+            .disabled(!settings.liveWallpaperEnabled)
         }
     }
 
@@ -613,6 +625,18 @@ struct LiveWallpaperPageView: View {
         case .quadHD: String(localized: "2K (1440p)")
         case .ultraHD: String(localized: "4K (2160p)")
         case .original: String(localized: "Original", comment: "Resolution of a wallpaper as its file came")
+        }
+    }
+
+    /// Named as Photos names its transitions, where it has them.
+    private static func title(of transition: LoopTransition) -> String {
+        switch transition {
+        case .none: String(localized: "loopTransition.none", defaultValue: "None")
+        case .dissolve: String(localized: "loopTransition.dissolve", defaultValue: "Dissolve")
+        case .blur: String(localized: "loopTransition.blur", defaultValue: "Blur")
+        case .zoom: String(localized: "loopTransition.zoom", defaultValue: "Zoom")
+        case .wipe: String(localized: "loopTransition.wipe", defaultValue: "Wipe")
+        case .fadeToBlack: String(localized: "loopTransition.fadeToBlack", defaultValue: "Fade to Black")
         }
     }
 
