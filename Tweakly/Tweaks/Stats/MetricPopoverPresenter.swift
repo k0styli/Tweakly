@@ -106,7 +106,8 @@ private final class EndProcessQuestion: NSObject {
     init(entry: ProcessEntry, onClose: @escaping () -> Void) {
         self.entry = entry
         self.onClose = onClose
-        // Only the person's own processes get a row that can be ended, so none of them belongs to another user.
+        // A row that can be ended is the person's app, which quits by its own command, or the person's own processes, so
+        // nothing of another user's gets a signal from here.
         let logsOut = entry.bundlePath == nil && ["WindowServer", "loginwindow"].contains(entry.name)
         alert = ProcessActions.question(
             name: entry.name, processCount: entry.processCount, logsOut: logsOut, isSystem: false, force: false)

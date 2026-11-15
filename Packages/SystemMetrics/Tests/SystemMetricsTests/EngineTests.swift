@@ -525,6 +525,33 @@ private final class Recorder: Sendable {
         #expect(cpu == cpu.sorted(by: >))
     }
 
+    /// Another user's process, here launchd, comes from the foreign reader: its memory with the next reading, and its
+    /// load once two answers can be compared.
+    @Test func otherUsersProcessesComeFromTheForeignReader() throws {
+        let calls = Mutex(0)
+        let sampler = ProcessSampler(foreignReader: { pids, answer in
+            let call = calls.withLock { count in
+                count += 1
+                return count
+            }
+            guard pids.contains(1) else { return answer([:]) }
+            answer([
+                1: ForeignProcessFigures(
+                    start: 7, cpuTime: UInt64(call) * 1_000_000_000, memory: 64 << 30, diskRead: 0, diskWritten: 0)
+            ])
+        })
+        _ = sampler.rank()
+        Thread.sleep(forTimeInterval: 0.25)
+        let second = sampler.rank()
+        let top = try #require(second.byMemory.first)
+        #expect(top.members.contains { $0.pid == 1 })
+        #expect(top.memory >= 64 << 30)
+        #expect(!top.canEnd)
+        Thread.sleep(forTimeInterval: 2)
+        let third = sampler.rank()
+        #expect(third.byCPU.first?.members.contains { $0.pid == 1 } == true)
+    }
+
     @Test func frequencies() throws {
         let reader = try #require(CPUFrequencyReader())
         #expect(reader.read() == nil, "the first read only takes the baseline")

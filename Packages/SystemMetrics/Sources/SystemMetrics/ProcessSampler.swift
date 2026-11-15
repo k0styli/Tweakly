@@ -1,8 +1,34 @@
 import Darwin
 import Foundation
+import Synchronization
 
-/// Ranks the user's processes by CPU and memory. Only runs while a detail view is on screen, because
-/// it touches every process. Processes owned by other users refuse access and are simply skipped.
+/// Figures of a process this app may not read itself, such as another user's, from a reader with the rights to.
+public struct ForeignProcessFigures: Sendable {
+    /// When it started, in mach time, which tells a process from a later one given the same number.
+    public var start: UInt64
+    /// Nanoseconds.
+    public var cpuTime: UInt64
+    public var memory: UInt64
+    public var diskRead: UInt64
+    public var diskWritten: UInt64
+
+    public init(start: UInt64, cpuTime: UInt64, memory: UInt64, diskRead: UInt64, diskWritten: UInt64) {
+        self.start = start
+        self.cpuTime = cpuTime
+        self.memory = memory
+        self.diskRead = diskRead
+        self.diskWritten = diskWritten
+    }
+}
+
+/// Asks for the figures of these processes and answers once, later and on any queue, with nil when it cannot.
+public typealias ForeignProcessReader =
+    @Sendable (_ pids: [Int32], _ answer: @escaping @Sendable ([Int32: ForeignProcessFigures]?) -> Void) -> Void
+
+/// Ranks processes by CPU, memory and disk. Only runs while a list of them is on screen, because it touches every
+/// process. Without root, the system answers only about the person's own processes. Another user's, such as WindowServer
+/// or a virtual machine Parallels runs as root, come from the foreign reader where there is one, the task manager's root
+/// helper, and are left out otherwise.
 final class ProcessSampler {
     struct Ranking {
         var byCPU: [ProcessEntry] = []
@@ -41,6 +67,33 @@ final class ProcessSampler {
         var pids: [Int32] = []
     }
 
+    /// The reader's last answer, kept between readings. Its request goes out after one reading and serves the next, so
+    /// the engine's queue never waits for it.
+    private final class ForeignAnswers: Sendable {
+        struct Answer {
+            let figures: [Int32: ForeignProcessFigures]
+            let time: TimeInterval
+        }
+
+        private let state = Mutex<(latest: Answer?, isAsking: Bool)>((nil, false))
+
+        var latest: Answer? { state.withLock { $0.latest } }
+
+        /// One request at a time: a slow reader is not asked again before it has answered.
+        func ask(_ pids: [Int32], with reader: ForeignProcessReader) {
+            let isFree = state.withLock { state in
+                guard !state.isAsking else { return false }
+                state.isAsking = true
+                return true
+            }
+            guard isFree else { return }
+            reader(pids) { [self] figures in
+                let answer = figures.map { Answer(figures: $0, time: uptimeSeconds()) }
+                state.withLock { $0 = (answer, false) }
+            }
+        }
+    }
+
     private struct Reading {
         let pid: Int32
         let cpu: Double
@@ -67,12 +120,18 @@ final class ProcessSampler {
     private var rows: [Row] = []
     private var ranking = Ranking()
     private var madeLists: Lists = []
+    private let foreignReader: ForeignProcessReader?
+    private let foreignAnswers = ForeignAnswers()
+    /// The answer the readings below were worked out from, and they themselves, until a newer answer comes.
+    private var usedAnswer: ForeignAnswers.Answer?
+    private var foreignReadings: [Reading] = []
 
     /// The first reading only takes the baseline and looks up who every process is, which costs several times a usual
     /// reading. It is best taken where nothing waits for it.
     var hasBaseline: Bool { lastTime > 0 }
 
-    init() {
+    init(foreignReader: ForeignProcessReader? = nil) {
+        self.foreignReader = foreignReader
         var timebase = mach_timebase_info_data_t()
         mach_timebase_info(&timebase)
         nanosecondsPerTick = timebase.denom > 0 ? Double(timebase.numer) / Double(timebase.denom) : 1
@@ -99,9 +158,14 @@ final class ProcessSampler {
         cpuTimes.reserveCapacity(Int(count))
         var disk: [Int32: (read: UInt64, written: UInt64)] = [:]
         disk.reserveCapacity(Int(count))
+        var unreadable: [Int32] = []
         for index in 0..<Int(count) {
             let pid = pids[index]
-            guard pid > 0, let usage = Self.usage(of: pid) else { continue }
+            guard pid > 0 else { continue }
+            guard let usage = Self.usage(of: pid) else {
+                unreadable.append(pid)
+                continue
+            }
             let total = usage.ri_user_time &+ usage.ri_system_time
             cpuTimes[pid] = total
             var cpu = 0.0
@@ -126,7 +190,12 @@ final class ProcessSampler {
         }
         lastCPUTime = cpuTimes
         lastDisk = disk
-        identities.removeAll { cpuTimes[$0] == nil }
+        if let foreignReader {
+            readings += readForeign(unreadable)
+            foreignAnswers.ask(unreadable, with: foreignReader)
+        }
+        let alive = Set(pids.prefix(Int(count)))
+        identities.removeAll { !alive.contains($0) }
 
         // Every process counts towards its app before the busiest are chosen, or an app spread over many processes, each
         // modest, would never make the list however much it uses in all.
@@ -154,6 +223,41 @@ final class ProcessSampler {
         rows = order.compactMap { byOwner[$0] }
         madeLists = []
         return make(lists)
+    }
+
+    /// Another user's processes from the reader's latest answer, with rates against the answer before it. Kept until a
+    /// newer answer comes, and dropped with a failed one, as it says nothing about now.
+    private func readForeign(_ listed: [Int32]) -> [Reading] {
+        guard let answer = foreignAnswers.latest else {
+            usedAnswer = nil
+            foreignReadings = []
+            return []
+        }
+        if answer.time != usedAnswer?.time {
+            let previous = usedAnswer
+            let elapsed = previous.map { answer.time - $0.time } ?? 0
+            foreignReadings = answer.figures.keys.sorted().compactMap { pid in
+                guard let figures = answer.figures[pid] else { return nil }
+                var cpu = 0.0
+                var diskRead = 0.0
+                var diskWrite = 0.0
+                if elapsed > 0, let last = previous?.figures[pid], last.start == figures.start {
+                    if figures.cpuTime >= last.cpuTime {
+                        cpu = Double(figures.cpuTime - last.cpuTime) / 1_000_000_000 / elapsed
+                    }
+                    if figures.diskRead >= last.diskRead, figures.diskWritten >= last.diskWritten {
+                        diskRead = Double(figures.diskRead - last.diskRead) / elapsed
+                        diskWrite = Double(figures.diskWritten - last.diskWritten) / elapsed
+                    }
+                }
+                return Reading(
+                    pid: pid, cpu: cpu, memory: figures.memory, diskRead: diskRead, diskWrite: diskWrite,
+                    diskTotal: figures.diskRead &+ figures.diskWritten)
+            }
+            usedAnswer = answer
+        }
+        let listedSet = Set(listed)
+        return foreignReadings.filter { listedSet.contains($0.pid) }
     }
 
     /// The lists asked for that the last reading has not made yet.

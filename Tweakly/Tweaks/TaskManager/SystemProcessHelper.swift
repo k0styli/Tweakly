@@ -1,6 +1,7 @@
 import FanControlCore
 import Foundation
 import Synchronization
+import SystemMetrics
 
 /// The task manager's side of the root helper: the figures of processes the app cannot read, and ending one of them. The
 /// helper is the fans' one, installed once with an administrator's password; launchd starts it when this connects, and
@@ -144,6 +145,35 @@ nonisolated private final class Once<Answer: Sendable>: Sendable {
         continuation.withLock { stored in
             stored?.resume(returning: answer)
             stored = nil
+        }
+    }
+}
+
+/// The root helper as the popovers' lists and Home read it: the processes of other users, such as WindowServer or a
+/// virtual machine Parallels runs as root, as the task manager has them. Nothing at all unless the helper is installed
+/// and current, and the helper itself runs only while a list asks, leaving 20 seconds after the last request.
+actor OtherUsersProcesses {
+    private var helper: SystemProcessHelper?
+
+    /// For `MetricsEngine`, which asks from its own queue and takes the answer whenever it comes.
+    nonisolated var reader: ForeignProcessReader {
+        { [self] pids, answer in
+            Task.detached(priority: .utility) { answer(await self.figures(of: pids)) }
+        }
+    }
+
+    func figures(of pids: [Int32]) async -> [Int32: ForeignProcessFigures]? {
+        guard SystemProcessHelper.isInstalled else {
+            helper = nil
+            return nil
+        }
+        let helper = self.helper ?? SystemProcessHelper()
+        self.helper = helper
+        guard await helper.state() == .working, let figures = await helper.figures(of: pids) else { return nil }
+        return figures.mapValues {
+            ForeignProcessFigures(
+                start: $0.start, cpuTime: $0.cpuTime, memory: $0.memory, diskRead: $0.diskRead,
+                diskWritten: $0.diskWritten)
         }
     }
 }

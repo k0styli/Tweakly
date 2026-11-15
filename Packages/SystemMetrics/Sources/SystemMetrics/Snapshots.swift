@@ -20,7 +20,8 @@ public struct ProcessEntry: Equatable, Sendable, Identifiable {
     public var members: [ProcessMember] = []
     /// The app the row stands for, which a helper alone does not say: a service launchd started for it lives elsewhere.
     public var bundlePath: String?
-    /// Whether the person can end it from here: every process in it is theirs, and none of them is this app.
+    /// Whether the person can end it from here: the app it stands for is theirs, or every process in it is, and none of
+    /// them is this app.
     public var canEnd = false
     public var id: Int32 { pid }
 

@@ -20,6 +20,8 @@ final class StatsTweak {
         self?.detailsChanged()
     }
     private var engine: MetricsEngine?
+    /// Other users' processes for the lists, through the task manager's root helper where it is installed.
+    private let otherUsersProcesses = OtherUsersProcesses()
     /// Exists only while something takes a fan from the system.
     private var fanDriver: FanDriver?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
@@ -298,11 +300,12 @@ final class StatsTweak {
     }
 
     private func startEngine() {
-        engine = MetricsEngine { [weak self] updates in
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated { self?.deliver(updates) }
-            }
-        }
+        engine = MetricsEngine(
+            output: { [weak self] updates in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.deliver(updates) }
+                }
+            }, foreignProcesses: otherUsersProcesses.reader)
         lastPlan = SamplingPlan()
         observeSystem()
     }

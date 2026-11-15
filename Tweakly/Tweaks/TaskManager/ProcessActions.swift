@@ -144,7 +144,8 @@ enum ProcessActions {
     }
 
     /// Ends a row of a popover's list: the app it stands for, which takes its helpers with it, or else each of its
-    /// processes that is still the one that was listed. Only the person's own processes get a row that can be ended.
+    /// processes that is still the one that was listed. Another user's process is known without its start, and is never
+    /// sent a signal from here: its app ends it, or the task manager does with an administrator's rights.
     static func end(_ entry: ProcessEntry, force: Bool) {
         if let bundle = entry.bundlePath, let app = runningApp(at: bundle, preferring: entry), !app.isTerminated {
             let asked = force ? app.forceTerminate() : app.terminate()
@@ -152,7 +153,8 @@ enum ProcessActions {
         }
         let signal = force ? SIGKILL : SIGTERM
         let own = getpid()
-        for member in entry.members where canEnd(member.pid) && member.pid != own && member.isRunning {
+        for member in entry.members
+        where canEnd(member.pid) && member.pid != own && member.start != 0 && member.isRunning {
             if kill(member.pid, signal) != 0 {
                 log.notice("Could not end \(member.pid, privacy: .public): \(errno, privacy: .public)")
             }

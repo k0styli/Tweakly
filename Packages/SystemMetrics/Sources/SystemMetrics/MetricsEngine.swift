@@ -35,6 +35,7 @@ public actor MetricsEngine {
 
     private let queue: DispatchSerialQueue
     private let output: Output
+    private let foreignProcesses: ForeignProcessReader?
     private let makeSampler: (MetricKind) -> any MetricSampler
     private var plan = SamplingPlan()
     private var samplers: [MetricKind: any MetricSampler] = [:]
@@ -47,13 +48,19 @@ public actor MetricsEngine {
 
     public nonisolated var unownedExecutor: UnownedSerialExecutor { queue.asUnownedSerialExecutor() }
 
-    public init(output: @escaping Output) {
-        self.init(output: output, makeSampler: Self.liveSampler)
+    /// - Parameter foreignProcesses: Reads the processes of other users for the lists of processes. Without it, the
+    ///   lists hold the person's own processes alone.
+    public init(output: @escaping Output, foreignProcesses: ForeignProcessReader? = nil) {
+        self.init(output: output, foreignProcesses: foreignProcesses, makeSampler: Self.liveSampler)
     }
 
-    init(output: @escaping Output, makeSampler: @escaping (MetricKind) -> any MetricSampler) {
+    init(
+        output: @escaping Output, foreignProcesses: ForeignProcessReader? = nil,
+        makeSampler: @escaping (MetricKind) -> any MetricSampler
+    ) {
         self.queue = DispatchSerialQueue(label: "me.tweakly.Tweakly.metrics", qos: .utility)
         self.output = output
+        self.foreignProcesses = foreignProcesses
         self.makeSampler = makeSampler
     }
 
@@ -97,7 +104,7 @@ public actor MetricsEngine {
             }
         }
         if active.contains(where: { newPlan.listsProcesses(of: $0.key, at: $0.value) }) {
-            if processes == nil { processes = ProcessSampler() }
+            if processes == nil { processes = ProcessSampler(foreignReader: foreignProcesses) }
         } else {
             processes = nil
         }

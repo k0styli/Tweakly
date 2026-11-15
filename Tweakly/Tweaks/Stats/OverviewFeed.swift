@@ -10,6 +10,8 @@ import SystemMetrics
 final class OverviewFeed {
     let data = StatsLiveData()
     private var engine: MetricsEngine?
+    /// Other users' processes too, as the task manager lists them, where its root helper is installed.
+    private let otherUsersProcesses = OtherUsersProcesses()
 
     func setVisible(_ isVisible: Bool) {
         guard isVisible != (engine != nil) else { return }
@@ -17,14 +19,15 @@ final class OverviewFeed {
             engine = nil
             return
         }
-        let engine = MetricsEngine { [weak self] updates in
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    guard let self, self.engine != nil else { return }
-                    updates.forEach(self.data.apply)
+        let engine = MetricsEngine(
+            output: { [weak self] updates in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        guard let self, self.engine != nil else { return }
+                        updates.forEach(self.data.apply)
+                    }
                 }
-            }
-        }
+            }, foreignProcesses: otherUsersProcesses.reader)
         var levels: [MetricKind: SamplingLevel] = [:]
         // The page has nothing about the fans, whose sensors are not free to read.
         for kind in MetricKind.available where kind != .fans { levels[kind] = .overview }

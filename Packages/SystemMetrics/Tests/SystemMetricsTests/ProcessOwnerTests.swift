@@ -8,6 +8,7 @@ import Testing
     private static let user = getuid()
     private static let editor = "/Applications/Editor.app"
     private static let safari = "/Applications/Safari.app"
+    private static let parallels = "/Applications/Parallels Desktop.app"
 
     private static let processes: [Int32: (identity: ProcessIdentity, path: String)] = [
         100: identity("Editor", editor + "/Contents/MacOS/Editor", parent: 1),
@@ -31,6 +32,14 @@ import Testing
         500: identity(
             "WindowServer", "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer",
             parent: 1, user: 88),
+        // Parallels: the app is the person's, its service and the virtual machine it starts run as root.
+        700: identity("prl_client_app", parallels + "/Contents/MacOS/prl_client_app", parent: 1),
+        701: identity(
+            "prl_disp_service", parallels + "/Contents/MacOS/Parallels Service.app/Contents/MacOS/prl_disp_service",
+            parent: 1, user: 0),
+        702: identity(
+            "prl_vm_app", parallels + "/Contents/MacOS/Parallels VM.app/Contents/MacOS/prl_vm_app", parent: 701, user: 0
+        ),
         600: identity("ghost", "/usr/bin/ghost", parent: 601),
         601: identity("ghost", "/usr/bin/ghost", parent: 600),
     ]
@@ -108,6 +117,15 @@ import Testing
         var identities = identities()
         #expect(!identities.entry(for: identities.owner(of: 500), pids: [500]).canEnd)
         #expect(identities.entry(for: identities.owner(of: 400), pids: [400]).canEnd)
+    }
+
+    /// The person's app quits by its own command and ends what it runs as root itself.
+    @Test func thePersonsAppCanBeEndedWithWhatItRunsAsRoot() {
+        var identities = identities()
+        let owner = identities.owner(of: 702)
+        #expect(owner.bundlePath == Self.parallels)
+        #expect(identities.entry(for: owner, pids: [702, 701, 700]).canEnd)
+        #expect(!identities.entry(for: owner, pids: [701, 702]).canEnd, "without the app's own process, only signals")
     }
 
     @Test func thisAppCannotEndItself() {

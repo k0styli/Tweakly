@@ -125,22 +125,27 @@ struct ProcessIdentities {
         // The app's own process, where it is among them: its number is the one that asks the app to quit.
         let bundle = owner.bundlePath
         var headIndex = 0
+        var isAppsOwn = false
         if let bundle, let index = sorted.firstIndex(where: { Self.innermostBundle(of: path(of: $0)) == bundle }) {
             headIndex = index
+            isAppsOwn = true
         }
         let head = sorted.isEmpty ? 0 : sorted[headIndex]
         var entry = ProcessEntry(
             pid: head, name: name(of: owner), path: sorted.isEmpty ? nil : path(of: head), cpu: 0, memory: 0)
         let ownUser = getuid()
         let ownPID = getpid()
-        var canEnd = !sorted.isEmpty
+        var allOwn = !sorted.isEmpty
         entry.members = sorted.map { pid in
             let identity = identity(of: pid)
-            canEnd = canEnd && pid > 1 && pid != ownPID && identity.userID == ownUser
+            allOwn = allOwn && pid > 1 && identity.userID == ownUser
             return ProcessMember(pid: pid, start: identity.start)
         }
         entry.bundlePath = bundle
-        entry.canEnd = canEnd
+        // An app the person runs quits by its own command and takes care of the rest itself, such as a virtual machine
+        // Parallels runs as root. Anything else needs every process to be the person's, to send each a signal.
+        let isPersonsApp = isAppsOwn && identity(of: head).userID == ownUser
+        entry.canEnd = !sorted.contains(ownPID) && (allOwn || isPersonsApp)
         return entry
     }
 
