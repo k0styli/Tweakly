@@ -85,6 +85,11 @@
             Self.write(["panel": panel.frame, "screen": screen.frame], window: panel.windowNumber, to: state)
         }
 
+        /// Moves the highlight as a press of Tab does: it jumps, as in the real panel.
+        func selectSwitcher(_ index: Int) {
+            switcher?.select(index)
+        }
+
         func closeSwitcher() {
             switcher?.close()
             switcher = nil
@@ -130,7 +135,8 @@
             dockWindow = window
             dockPanel = panel
             Self.write(
-                ["panel": panel.frame, "bar": bar, "screen": screen.frame], window: panel.windowNumber, to: state)
+                ["panel": panel.frame, "bar": bar, "icon": icon, "screen": screen.frame], window: panel.windowNumber,
+                to: state)
         }
 
         func closeDock() {

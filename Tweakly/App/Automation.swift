@@ -266,6 +266,8 @@
                 if windowSettings != nil { ProcessEvents.quitEverything() }
             case "window-front":
                 window?.bringToFrontForMeasuring()
+            case "window-active":
+                window?.showActiveForTesting(argument != "0")
             case "window-page":
                 if let page = MainPage(rawValue: argument) { window?.openPageForMeasuring(page) }
             case "window-visible":
@@ -343,6 +345,20 @@
                 Self.snapshotRows(to: argument)
             case "site-labels":
                 Self.siteLabels(to: argument)
+            case "promo-labels":
+                // `promo-labels DIR [PIXELS-PER-POINT]`: every metric's label for the made-up Mac's figures, as the
+                // menu bar draws it by default, in a dark bar's ink: the promo video's menu bar, sharp in a close-up.
+                let scale = words.count > 2 ? Double(words[2]).map { CGFloat(max(1, min($0, 8))) } ?? 6 : 6
+                Self.promoLabels(to: argument, scale: scale)
+            case "label-values":
+                // `label-values DIR KIND LOW HIGH [PIXELS-PER-POINT]`: the label for each whole percent in a dark menu
+                // bar's ink, as the promo video draws it; more pixels for a close-up.
+                if words.count > 4, let kind = MetricKind(rawValue: words[2]), let low = Int(words[3]),
+                    let high = Int(words[4]), low <= high
+                {
+                    let scale = words.count > 5 ? Double(words[5]).map { CGFloat(max(1, min($0, 8))) } ?? 2 : 2
+                    Self.labelValues(to: argument, kind: kind, values: low...high, scale: scale)
+                }
             case "snapshot-battery":
                 Self.sheetScale = Self.scale(words)
                 Self.snapshotBattery(to: argument)
@@ -535,6 +551,9 @@
                 guard stats != nil else { return }
                 if argument == "close" {
                     DemoPanels.shared.closeSwitcher()
+                } else if argument == "select" {
+                    // `switcher-demo select N`: the highlight moves on, as a press of Tab moves it.
+                    DemoPanels.shared.selectSwitcher(Int(words.count > 2 ? words[2] : "") ?? 0)
                 } else {
                     DemoPanels.shared.showSwitcher(manifestAt: argument, state: words.count > 2 ? words[2] : nil)
                 }
@@ -980,6 +999,71 @@
                         [item], scale: 6, appearance: appearance, ink: ink,
                         to: "\(directory)/label-\(kind.rawValue)-\(theme).png")
                 }
+            }
+        }
+
+        /// Each metric's label for the made-up Mac's figures (see DemoData), fans too, as the menu bar draws it by
+        /// default (stacked, centred), in a dark bar's ink; and for each style a strip of the first five labels with
+        /// the same figures, so the film's figures stay put while the style changes.
+        private static func promoLabels(to directory: String, scale: CGFloat) {
+            let appearance = NSAppearance(named: .darkAqua) ?? NSAppearance.currentDrawing()
+            let options = StatusLabelOptions(style: .stacked, alignment: .center, batteryStyle: .number)
+            for kind in MetricKind.allCases {
+                let item = StatusLabelContent.make(kind: kind, value: DemoData.menuValue(of: kind), options: options)
+                writeStrip(
+                    [item], scale: scale, appearance: appearance, ink: .white,
+                    to: "\(directory)/label-\(kind.rawValue).png")
+            }
+            let kinds: [MetricKind] = [.cpu, .gpu, .memory, .disk, .network]
+            for style in MenuBarStyle.allCases {
+                let options = StatusLabelOptions(style: style, alignment: .center, batteryStyle: .number)
+                let items = kinds.map { kind in
+                    StatusLabelContent.make(
+                        kind: kind, value: DemoData.menuValue(of: kind), options: options, history: promoHistory(kind))
+                }
+                writeStrip(
+                    items, scale: scale, appearance: appearance, ink: .white,
+                    to: "\(directory)/style-\(style.rawValue).png")
+            }
+        }
+
+        /// A calm last two minutes that ends on the made-up figure, for the styles that draw a graph.
+        private static func promoHistory(_ kind: MetricKind) -> StatusLabelHistory {
+            let steps: [Double] = [
+                -4, -2, 1, 3, -1, 2, 5, 1, -3, 0, 2, 4, 1, -2, 3, 6, 2, -1, 1, 3, 0, 2, -1, 0,
+            ]
+            var history = StatusLabelHistory()
+            let value = DemoData.menuValue(of: kind)
+            for step in steps {
+                switch value {
+                case .rates:
+                    let factor = max(0.2, 1 + step / 6)
+                    history.record(
+                        .rates(
+                            up: CompactRate(bytesPerSecond: DemoData.up * factor),
+                            down: CompactRate(bytesPerSecond: DemoData.down * factor)))
+                case .percent(let percent):
+                    history.record(.percent(min(100, max(0, percent + Int(step)))))
+                default:
+                    history.record(value)
+                }
+            }
+            return history
+        }
+
+        /// A metric's label with each figure, as the menu bar draws it by default (stacked, centred), in a dark menu
+        /// bar's ink, two pixels to a point unless asked for more: the promo video puts the one the panel shows over
+        /// the item.
+        private static func labelValues(
+            to directory: String, kind: MetricKind, values: ClosedRange<Int>, scale: CGFloat
+        ) {
+            let appearance = NSAppearance(named: .darkAqua) ?? NSAppearance.currentDrawing()
+            let options = StatusLabelOptions(style: .stacked, alignment: .center, batteryStyle: .number)
+            for value in values {
+                let item = StatusLabelContent.make(kind: kind, value: .percent(value), options: options)
+                writeStrip(
+                    [item], scale: scale, appearance: appearance, ink: .white,
+                    to: "\(directory)/label-\(kind.rawValue)-\(value).png")
             }
         }
 

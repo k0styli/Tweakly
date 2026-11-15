@@ -198,6 +198,91 @@ final class MainWindowController: NSObject, NSWindowDelegate {
             window.orderFrontRegardless()
         }
 
+        /// Draws the window as the active one, coloured window buttons and controls in the accent colour, without the
+        /// app becoming active: a test copy on the invisible display never takes the focus from the person at the Mac.
+        /// AppKit asks a window whether it looks active each time it draws, through private methods; in automation
+        /// builds only (the owner agreed, 2026-11-15) those answers are replaced. If a method is gone, it is skipped and
+        /// the window keeps its usual look.
+        func showActiveForTesting(_ isActive: Bool) {
+            Self.forcesActiveAppearance = isActive
+            Self.replaceActiveAppearance
+            // The focus on the sidebar's list, as after a click on a page, not in the search field.
+            if isActive, let list = Self.firstTable(in: window.contentView) {
+                window.makeFirstResponder(list)
+                if list.selectedRow >= 0 { list.scrollRowToVisible(list.selectedRow) }
+            }
+            if let frame = window.contentView?.superview {
+                for name in ["_updateButtonState", "_windowChangedKeyState"] {
+                    let selector = NSSelectorFromString(name)
+                    if frame.responds(to: selector) { frame.perform(selector) }
+                }
+            }
+            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                guard let button = window.standardWindowButton(button) else { continue }
+                let update = NSSelectorFromString("update")
+                if button.responds(to: update) { button.perform(update) }
+                button.needsDisplay = true
+            }
+            NotificationCenter.default.post(
+                name: isActive ? NSWindow.didBecomeKeyNotification : NSWindow.didResignKeyNotification, object: window)
+            NotificationCenter.default.post(
+                name: isActive ? NSWindow.didBecomeMainNotification : NSWindow.didResignMainNotification, object: window
+            )
+            window.contentView?.needsDisplay = true
+            window.update()
+            window.display()
+        }
+
+        // Read while AppKit draws and written by the automation channel, both on the main thread; a test build only.
+        nonisolated(unsafe) private static var forcesActiveAppearance = false
+
+        private static let replaceActiveAppearance: Void = {
+            typealias Getter = @convention(c) (AnyObject, Selector) -> Bool
+            typealias ButtonGetter = @convention(c) (AnyObject, Selector, Int) -> Bool
+            for name in [
+                "_hasActiveAppearance", "_hasActiveAppearanceIgnoringKeyFocus", "_hasKeyAppearance",
+                "hasKeyAppearance", "isKeyWindow", "isMainWindow",
+            ] {
+                let selector = NSSelectorFromString(name)
+                guard let method = class_getInstanceMethod(NSWindow.self, selector) else { continue }
+                let original = unsafeBitCast(method_getImplementation(method), to: Getter.self)
+                let replacement: @convention(block) (AnyObject) -> Bool = { window in
+                    forcesActiveAppearance || original(window, selector)
+                }
+                method_setImplementation(method, imp_implementationWithBlock(replacement))
+            }
+            // The window's frame decides the buttons' look itself.
+            if let frameClass = NSClassFromString("NSThemeFrame") {
+                for (name, answer) in [("_currentThemeStateIsActive", true), ("_inactiveButtonsNeedMask", false)] {
+                    let selector = NSSelectorFromString(name)
+                    guard let method = class_getInstanceMethod(frameClass, selector) else { continue }
+                    let original = unsafeBitCast(method_getImplementation(method), to: Getter.self)
+                    let replacement: @convention(block) (AnyObject) -> Bool = { frame in
+                        forcesActiveAppearance ? answer : original(frame, selector)
+                    }
+                    method_setImplementation(method, imp_implementationWithBlock(replacement))
+                }
+            }
+            // The window buttons ask the app as well.
+            for name in ["isActive", "_isActive"] {
+                let selector = NSSelectorFromString(name)
+                guard let method = class_getInstanceMethod(NSApplication.self, selector) else { continue }
+                let original = unsafeBitCast(method_getImplementation(method), to: Getter.self)
+                let replacement: @convention(block) (AnyObject) -> Bool = { app in
+                    forcesActiveAppearance || original(app, selector)
+                }
+                method_setImplementation(method, imp_implementationWithBlock(replacement))
+            }
+            let selector = NSSelectorFromString("_hasActiveAppearanceForStandardWindowButton:")
+            if let method = class_getInstanceMethod(NSWindow.self, selector) {
+                let original = unsafeBitCast(method_getImplementation(method), to: ButtonGetter.self)
+                let replacement: @convention(block) (AnyObject, Int) -> Bool = { window, button in
+                    forcesActiveAppearance || original(window, selector, button)
+                }
+                method_setImplementation(method, imp_implementationWithBlock(replacement))
+            }
+        }()
+
         /// Changes the page without activating the app, so a measurement does not take the keyboard away.
         func openPageForMeasuring(_ page: MainPage) {
             router.open(page)

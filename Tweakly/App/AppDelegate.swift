@@ -193,6 +193,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateFinderMenu() {
         let isOn = settings.finderMenuEnabled
+        #if TWEAKLY_AUTOMATION
+            // A test copy showing made-up data only draws its page switched on: it registers no extension in the
+            // Finder of the Mac it runs on and listens for none.
+            if DemoData.isOn {
+                finderMenuWasEnabled = isOn
+                return
+            }
+        #endif
         // Only the switch changing turns the extension on or off, so someone who turns it off in System Settings is not
         // overruled at the next launch. Off, Finder lets its process go, and the tweak costs nothing.
         if let wasOn = finderMenuWasEnabled, wasOn != isOn { FinderExtension.setEnabled(isOn) }
