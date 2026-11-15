@@ -26,6 +26,7 @@ final class NetworkSampler: MetricSampler {
     private var triedLatency = false
     private var processes: NetworkProcessSampler?
     private let publicAddress = PublicAddressReader()
+    private var detailsOpen = false
 
     init() {
         takeBaseline()
@@ -47,6 +48,7 @@ final class NetworkSampler: MetricSampler {
     /// All of this stays closed unless details are on screen: the pings and the requests go out only
     /// while someone is looking at what they measure.
     func closeDetails() {
+        detailsOpen = false
         wifiReader = nil
         wifi = nil
         latency = nil
@@ -99,16 +101,25 @@ final class NetworkSampler: MetricSampler {
         }
         snapshot.interface = interface
         guard level == .detail else { return .network(snapshot) }
+        snapshot.wifi = wifi
+        snapshot.latency = latency?.current()
+        if detailsOpen { snapshot.publicAddress = publicAddress.current(localAddress: interface?.address) }
+        snapshot.topProcesses = processes?.ranking() ?? []
+        return .network(snapshot)
+    }
+
+    /// The pings, the list of processes and the question about the public address all start here, once the quick figures
+    /// have gone out: the first request alone took 20 ms to set up. Wi-Fi is read with those figures, as the section it
+    /// fills would otherwise appear a moment after the popover and push everything below it down.
+    func openDetails(level: SamplingLevel) {
+        guard level == .detail, !detailsOpen else { return }
+        detailsOpen = true
         if latency == nil, !triedLatency {
             triedLatency = true
             latency = LatencyMonitor()
         }
         if processes == nil { processes = NetworkProcessSampler() }
-        snapshot.wifi = wifi
-        snapshot.latency = latency?.current()
-        snapshot.publicAddress = publicAddress.current(localAddress: interface?.address)
-        snapshot.topProcesses = processes?.ranking() ?? []
-        return .network(snapshot)
+        _ = publicAddress.current(localAddress: interface?.address)
     }
 
     /// Sums 64-bit traffic counters of physical interfaces. `en*` deliberately excludes VPN tunnels,

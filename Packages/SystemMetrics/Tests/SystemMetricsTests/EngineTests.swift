@@ -49,6 +49,28 @@ private final class ResettingRateSampler: MetricSampler {
     }
 }
 
+/// Notes when it samples and when it opens its details, alongside what the engine sends out.
+private final class OrderSampler: MetricSampler {
+    let log: Log
+
+    init(log: Log) { self.log = log }
+
+    func reset() {}
+
+    func sample(level: SamplingLevel) -> MetricUpdate? {
+        log.add("sample \(level)")
+        return .cpu(CPUSnapshot(usage: 0.5))
+    }
+
+    func openDetails(level: SamplingLevel) { log.add("open \(level)") }
+}
+
+private final class Log: Sendable {
+    private let entries = Mutex<[String]>([])
+    func add(_ entry: String) { entries.withLock { $0.append(entry) } }
+    var all: [String] { entries.withLock { $0 } }
+}
+
 private final class Recorder: Sendable {
     private let batches = Mutex<[[MetricUpdate]]>([])
     func record(_ batch: [MetricUpdate]) { batches.withLock { $0.append(batch) } }
@@ -331,6 +353,29 @@ private final class Recorder: Sendable {
         #expect(recorder.count == 2)
     }
 
+    /// Sensors take up to a quarter of a second to open, and a popover must not wait for them to show anything.
+    @Test func detailsOpenOnlyAfterTheQuickFiguresHaveGoneOut() async {
+        let log = Log()
+        let engine = MetricsEngine(output: { _ in log.add("output") }, makeSampler: { _ in OrderSampler(log: log) })
+        await engine.update(to: SamplingPlan(levels: [.cpu: .menu]))
+        #expect(log.all == ["sample menu", "output"])
+        await engine.update(to: SamplingPlan(levels: [.cpu: .detail]))
+        #expect(log.all.suffix(3) == ["sample detail", "output", "open detail"])
+    }
+
+    /// Looking up who every process is takes several times a usual reading, so the first one waits for the figures.
+    @Test func aNewListOfProcessesFillsInWithTheSecondReading() async throws {
+        let updates = Mutex<[MetricUpdate]>([])
+        let engine = MetricsEngine(
+            output: { batch in updates.withLock { $0 += batch } }, makeSampler: { _ in FakeSampler() })
+        await engine.update(to: SamplingPlan(levels: [.cpu: .detail]))
+        guard case .cpu(let first) = try #require(updates.withLock { $0.first }) else { return }
+        #expect(first.topProcesses.isEmpty)
+        try await Task.sleep(for: .milliseconds(450))
+        guard case .cpu(let second) = try #require(updates.withLock { $0.last }) else { return }
+        #expect(!second.topProcesses.isEmpty)
+    }
+
     @Test func raisingLevelDeliversImmediately() async {
         let recorder = Recorder()
         let engine = makeEngine(recorder, values: [0.5])
@@ -358,6 +403,7 @@ private final class Recorder: Sendable {
     @Test func cpu() throws {
         let sampler = CPUSampler()
         _ = try firstValue(of: sampler, level: .detail)
+        sampler.openDetails(level: .detail)
         settle()
         guard case .cpu(let cpu) = try firstValue(of: sampler, level: .detail) else {
             Issue.record("wrong kind")
@@ -378,8 +424,8 @@ private final class Recorder: Sendable {
             _ = sampler.sample(level: .overview)
         }
         sampler.reset()
-        settle()
-        guard case .cpu(let cpu) = try #require(sampler.sample(level: .overview)) else {
+        // Retried like the first value: a reading the kernel answers from its cache adds nothing to the graph.
+        guard case .cpu(let cpu) = try firstValue(of: sampler, level: .overview) else {
             Issue.record("wrong kind")
             return
         }
@@ -472,7 +518,9 @@ private final class Recorder: Sendable {
         let second = sampler.rank()
         #expect(!second.byCPU.isEmpty)
         #expect(second.byCPU.allSatisfy { $0.cpu > 0 })
-        #expect(second.byCPU.allSatisfy { $0.pid != getpid() }, "the first figures leave out this process")
+        let all = second.byCPU + second.byMemory
+        #expect(all.allSatisfy { entry in entry.members.contains { $0.pid == entry.pid } })
+        #expect(Set(second.byMemory.map(\.name)).count == second.byMemory.count, "an app counts once")
         let cpu = second.byCPU.map(\.cpu)
         #expect(cpu == cpu.sorted(by: >))
     }
@@ -510,6 +558,7 @@ private final class Recorder: Sendable {
     @Test func menuLevelClosesSensors() throws {
         let sampler = CPUSampler()
         _ = try firstValue(of: sampler, level: .detail)
+        sampler.openDetails(level: .detail)
         guard case .cpu(let menu) = try #require(sampler.sample(level: .menu)) else {
             Issue.record("wrong kind")
             return

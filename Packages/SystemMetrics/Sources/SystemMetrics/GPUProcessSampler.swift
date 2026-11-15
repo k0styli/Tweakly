@@ -11,6 +11,15 @@ final class GPUProcessSampler {
         let name: String
     }
 
+    /// What one app, or one process on its own, adds up to.
+    private struct Row {
+        let owner: ProcessOwner
+        var share = 0.0
+        var isActive = false
+        var lastSubmitted: UInt64 = 0
+        var pids: [Int32] = []
+    }
+
     private static let listSize = 5
     private static let interval: TimeInterval = 2
     /// Use takes two readings, and the list should fill in soon after details open.
@@ -34,25 +43,33 @@ final class GPUProcessSampler {
         identities.removeAll { clients[$0] == nil }
         guard hadBaseline, elapsed > 0 else { return ranking }
 
-        var active: [(pid: Int32, share: Double)] = []
-        var waiting: [(pid: Int32, lastSubmitted: UInt64)] = []
-        for (pid, client) in clients {
+        // An app's processes count as one row, as in the other lists. Work in parallel can add up to more than the time
+        // that passed, but this is a share of the GPU.
+        var rows: [ProcessOwner.Key: Row] = [:]
+        var order: [ProcessOwner.Key] = []
+        for (pid, client) in clients.sorted(by: { $0.key < $1.key }) {
+            let owner = identities.owner(of: pid, fallbackName: client.name)
+            var row = rows[owner.key] ?? Row(owner: owner)
+            if row.pids.isEmpty { order.append(owner.key) }
+            row.pids.append(pid)
             // A process that closed a client adds up to less than before, which only means an unknown window.
             if let last = lastTimes[pid], client.time > last {
-                // Work in parallel can add up to more than the time that passed, but this is a share of the GPU.
-                active.append((pid, min(Double(client.time - last) / 1_000_000_000 / elapsed, 1)))
-            } else if client.lastSubmitted > 0 {
-                waiting.append((pid, client.lastSubmitted))
+                row.share += Double(client.time - last) / 1_000_000_000 / elapsed
+                row.isActive = true
             }
+            row.lastSubmitted = max(row.lastSubmitted, client.lastSubmitted)
+            rows[owner.key] = row
         }
+        let all = order.compactMap { rows[$0] }
         // Few processes draw at any one moment. The most recent of the others fill the remaining rows, so
         // the list holds its size instead of leaving a hole that comes and goes.
-        let rows =
-            active.sorted { $0.share > $1.share }
-            + waiting.sorted { $0.lastSubmitted > $1.lastSubmitted }.map { ($0.pid, 0.0) }
-        ranking = rows.prefix(Self.listSize).map { pid, share in
-            let identity = identities.identity(of: pid, fallbackName: clients[pid]?.name)
-            return ProcessEntry(pid: pid, name: identity.name, path: identity.path, cpu: 0, memory: 0, gpu: share)
+        let shown =
+            all.filter(\.isActive).sorted { $0.share > $1.share }
+            + all.filter { !$0.isActive && $0.lastSubmitted > 0 }.sorted { $0.lastSubmitted > $1.lastSubmitted }
+        ranking = shown.prefix(Self.listSize).map { row in
+            var entry = identities.entry(for: row.owner, pids: row.pids)
+            entry.gpu = min(row.share, 1)
+            return entry
         }
         return ranking
     }

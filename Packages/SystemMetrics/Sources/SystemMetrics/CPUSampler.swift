@@ -120,7 +120,7 @@ final class CPUSampler: MetricSampler {
         guard level >= .overview else { return .cpu(snapshot) }
         snapshot.history = history.values
         guard level >= .summary else { return .cpu(snapshot) }
-        readSensors(now: now, withFrequency: level == .detail)
+        readSensors(now: now)
         snapshot.temperature = temperature
         guard level == .detail else { return .cpu(snapshot) }
         snapshot.cores = readCoreLoads()
@@ -135,19 +135,22 @@ final class CPUSampler: MetricSampler {
         return .cpu(snapshot)
     }
 
-    /// Sensors stay closed unless they are on screen, so the menu bar value never pays for them.
-    private func readSensors(now: TimeInterval, withFrequency: Bool) {
-        if !sensorsOpen {
-            sensorsOpen = true
-            thermal = ThermalReader()
-            temperature = thermal?.cpuTemperature()
-            if withFrequency {
-                frequencyReader = CPUFrequencyReader()
-                _ = frequencyReader?.read()
-            }
-            lastSensorRead = now
-            return
+    /// Sensors stay closed unless they are on screen, so the menu bar value never pays for them. The frequency's
+    /// subscription takes about 40 ms to open, which is why this waits until the quick figures have gone out.
+    func openDetails(level: SamplingLevel) {
+        guard !sensorsOpen else { return }
+        sensorsOpen = true
+        thermal = ThermalReader()
+        temperature = thermal?.cpuTemperature()
+        if level == .detail {
+            frequencyReader = CPUFrequencyReader()
+            _ = frequencyReader?.read()
         }
+        lastSensorRead = uptimeSeconds()
+    }
+
+    private func readSensors(now: TimeInterval) {
+        guard sensorsOpen else { return }
         // Frequency needs two readings, so the first real value should not wait for the full interval.
         let isWaitingForFirstValue = frequencies == nil && frequencyReader != nil
         guard now - lastSensorRead >= (isWaitingForFirstValue ? minimumSampleInterval : Self.sensorInterval) else {

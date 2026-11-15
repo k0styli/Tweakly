@@ -1,12 +1,13 @@
 import Foundation
 
 public struct ProcessEntry: Equatable, Sendable, Identifiable {
+    /// The app's own process when the row stands for an app and it is among those counted, and the first one otherwise.
     public let pid: Int32
     public let name: String
     public let path: String?
     /// Activity Monitor style: 1.0 is one fully used core.
-    public let cpu: Double
-    public let memory: UInt64
+    public var cpu: Double
+    public var memory: UInt64
     /// The share of the GPU's time, where 1.0 is all of it.
     public var gpu: Double = 0
     /// Bytes per second.
@@ -15,13 +16,33 @@ public struct ProcessEntry: Equatable, Sendable, Identifiable {
     /// Bytes per second.
     public var diskRead: Double = 0
     public var diskWrite: Double = 0
+    /// Every process the row adds up: an app's own, its helpers and what it started, or one process alone.
+    public var members: [ProcessMember] = []
+    /// The app the row stands for, which a helper alone does not say: a service launchd started for it lives elsewhere.
+    public var bundlePath: String?
+    /// Whether the person can end it from here: every process in it is theirs, and none of them is this app.
+    public var canEnd = false
     public var id: Int32 { pid }
+
+    public var processCount: Int { max(members.count, 1) }
 
     /// The outermost app this process belongs to, so that an app's helpers share its identity.
     public var appBundlePath: String? {
+        if let bundlePath { return bundlePath }
         guard let range = path?.range(of: ".app/"), let path else { return nil }
         return String(path[path.startIndex..<range.lowerBound]) + ".app"
     }
+}
+
+/// One of the processes a row adds up, with when it started, so that ending it never reaches a newer process that was
+/// given the same number.
+public struct ProcessMember: Equatable, Hashable, Sendable {
+    public let pid: Int32
+    /// Microseconds since 1970, or zero when unknown.
+    public let start: UInt64
+
+    /// Whether the number still names this process.
+    public var isRunning: Bool { ProcessIdentities.isRunning(self) }
 }
 
 /// Average load over recent time. A value is nil until the app has been watching for that long.
@@ -71,7 +92,7 @@ public struct GPUSnapshot: Equatable, Sendable {
     public var history: [Float] = []
 }
 
-public enum MemoryPressure: Sendable { case normal, warning, critical }
+public enum MemoryPressure: UInt8, Sendable { case normal, warning, critical }
 
 public struct MemorySnapshot: Equatable, Sendable {
     /// The memory installed.
@@ -88,6 +109,8 @@ public struct MemorySnapshot: Equatable, Sendable {
     public var pressure: MemoryPressure = .normal
     public var topProcesses: [ProcessEntry] = []
     public var history: [Float] = []
+    /// The pressure at each point of the history, which colours the graph as Activity Monitor colours its own.
+    public var pressureHistory: [MemoryPressure] = []
 
     /// What programs can have at once: free pages, plus file caches the system gives up on demand.
     public var available: UInt64 { free + cached }

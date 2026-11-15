@@ -72,6 +72,16 @@ final class StatsTweak {
         }
 
         var detailContentView: NSView? { presenter.contentView }
+        var detailFirstFiguresDelay: Double? { presenter.firstFiguresDelay }
+        var detailProcessList: ProcessListView? { presenter.processList }
+
+        /// Figures made up by a test, shown as if they had just been read.
+        func feedDetails(_ update: MetricUpdate) {
+            presenter.deliver(update)
+        }
+
+        /// Keeps real readings out of the popover, so made-up figures stay for a picture.
+        var holdsDetails = false
 
         func item(for kind: MetricKind) -> MetricStatusItem? { items[kind] }
         var shownItems: [MetricStatusItem] { Array(items.values) }
@@ -316,6 +326,9 @@ final class StatsTweak {
             if update.kind == .battery { lastBattery = update }
             if !isUnseen { items[update.kind]?.show(update.menuValue) }
             if case .fans(let fans) = update { fanDriver?.follow(fans, settings: settings.fanSettings) }
+            #if TWEAKLY_AUTOMATION
+                if holdsDetails { continue }
+            #endif
             if presenter.current?.shows(update.kind) == true { presenter.deliver(update) }
         }
         simpleItem?.noteLoads(updates)

@@ -32,6 +32,10 @@ final class MemorySampler: MetricSampler {
     private let usable: UInt64
     private let pageSize = UInt64(sysconf(_SC_PAGESIZE))
     private var history = RingBuffer(capacity: historyCapacity)
+    /// The pressure beside each point of the history, as 0, 1 and 2.
+    private var pressureHistory = RingBuffer(capacity: historyCapacity)
+    /// Looked up once: by name the call would find the same number again every second.
+    private let pressureMIB: [Int32]
 
     init() {
         let total = Self.readSize("hw.memsize")
@@ -40,6 +44,10 @@ final class MemorySampler: MetricSampler {
         // exactly. Without this key, all the installed memory counts as usable.
         let usable = Self.readSize("hw.memsize_usable")
         self.usable = usable > 0 ? usable : total
+        var mib = [Int32](repeating: 0, count: Int(CTL_MAXNAME))
+        var length = mib.count
+        pressureMIB =
+            sysctlnametomib("kern.memorystatus_vm_pressure_level", &mib, &length) == 0 ? Array(mib.prefix(length)) : []
     }
 
     private static func readSize(_ name: String) -> UInt64 {
@@ -79,9 +87,13 @@ final class MemorySampler: MetricSampler {
         snapshot.cached = breakdown.cached
         snapshot.free = breakdown.free
         history.append(Float(snapshot.usedFraction))
+        // With every point, even for the menu bar alone, so a graph opened later knows the pressure all along it.
+        let pressure = readPressure()
+        pressureHistory.append(Float(pressure.rawValue))
         guard level >= .overview else { return .memory(snapshot) }
         snapshot.history = history.values
-        snapshot.pressure = readPressure()
+        snapshot.pressureHistory = pressureHistory.values.map { MemoryPressure(rawValue: UInt8($0)) ?? .normal }
+        snapshot.pressure = pressure
         guard level == .detail else { return .memory(snapshot) }
         snapshot.swapUsed = readSwapUsed()
         return .memory(snapshot)
@@ -90,7 +102,8 @@ final class MemorySampler: MetricSampler {
     private func readPressure() -> MemoryPressure {
         var level: Int32 = 0
         var length = MemoryLayout<Int32>.size
-        guard sysctlbyname("kern.memorystatus_vm_pressure_level", &level, &length, nil, 0) == 0 else { return .normal }
+        var mib = pressureMIB
+        guard !mib.isEmpty, sysctl(&mib, UInt32(mib.count), &level, &length, nil, 0) == 0 else { return .normal }
         switch level {
         case 4: return .critical
         case 2: return .warning

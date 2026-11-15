@@ -385,10 +385,38 @@ final class ColorDot: NSView {
 ///
 /// While the history is still short, a grey line runs along the bottom where there is no data yet and
 /// rises into the first value, and the fill fades in, so the graph starts rather than looks cut off.
+///
+/// A stretch of time that calls for attention takes the colour of its warning, line and fill alike, as Activity
+/// Monitor colours its memory pressure graph: the moments the processor was nearly full turn red, and the rest stays
+/// as it was, so a single busy moment does not colour an hour of quiet.
 final class SparklineView: NSView {
     struct Series: Equatable {
         var values: [Float]
         var color: NSColor
+        /// For the last values, how much each calls for attention. Empty when none does.
+        var warnings: [Warning] = []
+    }
+
+    enum Warning: Equatable {
+        case none, elevated, critical
+
+        var color: NSColor? {
+            switch self {
+            case .none: nil
+            case .elevated: .systemOrange
+            case .critical: .systemRed
+            }
+        }
+    }
+
+    /// The share of a load from which the graph turns red: the processor or the GPU has almost nothing left.
+    static let highLoad: Float = 0.9
+
+    /// Red for each load at or above `highLoad`. No list at all while none is, the usual case, so nothing is made
+    /// every second for nothing.
+    static func warnings(forLoads values: [Float]) -> [Warning] {
+        guard values.contains(where: { $0 >= highLoad }) else { return [] }
+        return values.map { $0 >= highLoad ? .critical : .none }
     }
 
     private static let lineWidth: CGFloat = 1.5
@@ -445,20 +473,76 @@ final class SparklineView: NSView {
             let path = NSBezierPath()
             path.move(to: points[0])
             points.dropFirst().forEach(path.line(to:))
+            path.lineWidth = Self.lineWidth
+            path.lineJoinStyle = .round
+            path.lineCapStyle = .round
 
             let fill = NSBezierPath()
             fill.append(path)
             fill.line(to: NSPoint(x: bounds.maxX, y: bounds.minY))
             fill.line(to: NSPoint(x: startX, y: bounds.minY))
             fill.close()
-            drawFill(fill, color: line.color, startX: startX)
 
-            line.color.setStroke()
-            path.lineWidth = Self.lineWidth
-            path.lineJoinStyle = .round
-            path.lineCapStyle = .round
-            path.stroke()
+            let stretches = warningStretches(of: line, startX: startX, step: step)
+            guard !stretches.isEmpty else {
+                draw(path, fill: fill, color: line.color, startX: startX)
+                continue
+            }
+            // The usual colour everywhere but the stretches that warn, then each warning in its own.
+            NSGraphicsContext.saveGraphicsState()
+            let elsewhere = NSBezierPath(rect: bounds)
+            elsewhere.windingRule = .evenOdd
+            stretches.forEach { elsewhere.appendRect($0.rect) }
+            elsewhere.addClip()
+            draw(path, fill: fill, color: line.color, startX: startX)
+            NSGraphicsContext.restoreGraphicsState()
+            for warning in [Warning.elevated, .critical] {
+                guard let color = warning.color else { continue }
+                let rects = stretches.filter { $0.warning == warning }.map(\.rect)
+                guard !rects.isEmpty else { continue }
+                NSGraphicsContext.saveGraphicsState()
+                let area = NSBezierPath()
+                rects.forEach(area.appendRect)
+                area.addClip()
+                draw(path, fill: fill, color: color, startX: startX)
+                NSGraphicsContext.restoreGraphicsState()
+            }
         }
+    }
+
+    private func draw(_ path: NSBezierPath, fill: NSBezierPath, color: NSColor, startX: CGFloat) {
+        drawFill(fill, color: color, startX: startX)
+        color.setStroke()
+        path.stroke()
+    }
+
+    /// Runs of values with the same warning, each reaching halfway to its neighbours, so the colour changes between two
+    /// points rather than at one of them.
+    private func warningStretches(of line: Series, startX: CGFloat, step: CGFloat) -> [(warning: Warning, rect: NSRect)]
+    {
+        guard !line.warnings.isEmpty else { return [] }
+        // The warnings belong to the last values, should one list be a little longer than the other.
+        let offset = line.values.count - line.warnings.count
+        var stretches: [(warning: Warning, rect: NSRect)] = []
+        var runStart: Int?
+        var runWarning = Warning.none
+        func close(at end: Int) {
+            guard let start = runStart, runWarning != .none else { return }
+            let left = max(startX + (CGFloat(start) - 0.5) * step, bounds.minX)
+            let right = min(startX + (CGFloat(end) + 0.5) * step, bounds.maxX)
+            stretches.append((runWarning, NSRect(x: left, y: bounds.minY, width: right - left, height: bounds.height)))
+        }
+        for index in line.values.indices {
+            let warningIndex = index - offset
+            let warning = line.warnings.indices.contains(warningIndex) ? line.warnings[warningIndex] : .none
+            if warning != runWarning {
+                close(at: index - 1)
+                runStart = index
+                runWarning = warning
+            }
+        }
+        close(at: line.values.count - 1)
+        return stretches
     }
 
     /// The grey line for the stretch with no data, rising into the first value.

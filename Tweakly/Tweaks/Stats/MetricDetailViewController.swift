@@ -11,6 +11,13 @@ final class MetricDetailViewController: NSViewController {
     private var content: (any MetricDetailContent)?
     private var root: DetailScrollRoot?
     private var lastVisibleCount = 0
+    /// Asks to end an app or a process from the list. Set before the view loads.
+    var onEndProcess: ((ProcessEntry) -> Void)?
+    #if TWEAKLY_AUTOMATION
+        private var loadedAt: UInt64 = 0
+        private(set) var firstFiguresDelay: Double?
+        var processList: ProcessListView? { content?.processList }
+    #endif
 
     /// Single figures have no use for the room that charts and tables of details need.
     private var width: CGFloat {
@@ -30,6 +37,9 @@ final class MetricDetailViewController: NSViewController {
     }
 
     override func loadView() {
+        #if TWEAKLY_AUTOMATION
+            loadedAt = DispatchTime.now().uptimeNanoseconds
+        #endif
         let detail: any MetricDetailContent =
             switch popover {
             case .details(.cpu): CPUDetailView(info: .current)
@@ -43,6 +53,7 @@ final class MetricDetailViewController: NSViewController {
             case .simple(let kinds, .list): SimpleListView(kinds: kinds, info: .current)
             }
         content = detail
+        if let onEndProcess { detail.processList?.onEnd = onEndProcess }
 
         let root = DetailScrollRoot(
             column: NSStackView.detailColumn(spacing: DetailLayout.sectionSpacing, [detail]), width: width)
@@ -53,6 +64,11 @@ final class MetricDetailViewController: NSViewController {
 
     func update(_ update: MetricUpdate) {
         guard isViewLoaded else { return }
+        #if TWEAKLY_AUTOMATION
+            if firstFiguresDelay == nil {
+                firstFiguresDelay = Double(DispatchTime.now().uptimeNanoseconds - loadedAt) / 1_000_000
+            }
+        #endif
         content?.update(update)
         // Solving the layout every second just to find it unchanged would be the costliest thing here.
         let count = root.map { visibleRowCount(in: $0.column) } ?? 0
@@ -89,6 +105,12 @@ final class MetricDetailViewController: NSViewController {
 /// One metric's details.
 protocol MetricDetailContent: NSView {
     func update(_ update: MetricUpdate)
+    /// The apps and processes it lists, which can offer to end them.
+    var processList: ProcessListView? { get }
+}
+
+extension MetricDetailContent {
+    var processList: ProcessListView? { nil }
 }
 
 final class CPUDetailView: NSStackView, MetricDetailContent {
@@ -140,6 +162,8 @@ final class CPUDetailView: NSStackView, MetricDetailContent {
             NSStackView.detailColumn(spacing: 4, [detailSectionTitle(String(localized: "Top processes")), processes]))
     }
 
+    var processList: ProcessListView? { processes }
+
     @available(*, unavailable)
     required init(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
@@ -148,7 +172,11 @@ final class CPUDetailView: NSStackView, MetricDetailContent {
     func update(_ update: MetricUpdate) {
         guard case .cpu(let cpu) = update else { return }
         header.update(subtitle: subtitle, value: Format.percent(cpu.usage))
-        graph.update([.init(values: cpu.history, color: .controlAccentColor)])
+        graph.update([
+            .init(
+                values: cpu.history, color: .controlAccentColor,
+                warnings: SparklineView.warnings(forLoads: cpu.history))
+        ])
         split.update([
             .init(fraction: cpu.user, color: .controlAccentColor),
             .init(fraction: cpu.system, color: .systemRed),
@@ -225,6 +253,8 @@ final class GPUDetailView: NSStackView, MetricDetailContent {
             NSStackView.detailColumn(spacing: 4, [detailSectionTitle(String(localized: "Top processes")), processes]))
     }
 
+    var processList: ProcessListView? { processes }
+
     @available(*, unavailable)
     required init(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
@@ -234,7 +264,11 @@ final class GPUDetailView: NSStackView, MetricDetailContent {
         guard case .gpu(let gpu) = update else { return }
         header.update(subtitle: subtitle, value: gpu.usage.map { Format.percent($0) } ?? "—")
         header.setSide(gpu.temperature.map(Format.temperature(celsius:)), color: chipTemperatureColor(gpu.temperature))
-        graph.update([.init(values: gpu.history, color: .controlAccentColor)])
+        graph.update([
+            .init(
+                values: gpu.history, color: .controlAccentColor,
+                warnings: SparklineView.warnings(forLoads: gpu.history))
+        ])
 
         deviceGauge.update(gpu.usage)
         rendererGauge.update(gpu.renderer)
@@ -287,6 +321,8 @@ final class MemoryDetailView: NSStackView, MetricDetailContent {
             NSStackView.detailColumn(spacing: 4, [detailSectionTitle(String(localized: "Top processes")), processes]))
     }
 
+    var processList: ProcessListView? { processes }
+
     @available(*, unavailable)
     required init(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
@@ -296,7 +332,10 @@ final class MemoryDetailView: NSStackView, MetricDetailContent {
         guard case .memory(let memory) = update else { return }
         header.update(subtitle: Self.capacity(of: memory), value: Format.percent(memory.usedFraction))
         header.setSide(Format.memorySize(memory.used), color: Self.color(for: memory.pressure))
-        graph.update([.init(values: memory.history, color: .controlAccentColor)])
+        graph.update([
+            .init(
+                values: memory.history, color: .controlAccentColor, warnings: Self.warnings(memory.pressureHistory))
+        ])
 
         bar.update([
             .init(fraction: memory.share(of: memory.app), color: Self.appColor),
@@ -327,6 +366,19 @@ final class MemoryDetailView: NSStackView, MetricDetailContent {
         let total = Format.memorySize(memory.total)
         guard memory.usable > 0, memory.usable < memory.total else { return total }
         return String(localized: "\(total), \(Format.memorySize(memory.usable)) for macOS")
+    }
+
+    /// The pressure along the graph, as Activity Monitor colours it. Memory that is nearly all used is how macOS works
+    /// best, so only the pressure says when it is short.
+    private static func warnings(_ pressure: [MemoryPressure]) -> [SparklineView.Warning] {
+        guard pressure.contains(where: { $0 != .normal }) else { return [] }
+        return pressure.map {
+            switch $0 {
+            case .normal: .none
+            case .warning: .elevated
+            case .critical: .critical
+            }
+        }
     }
 
     /// Like a hot chip, memory only draws attention when the system is short of it.
@@ -395,6 +447,8 @@ final class DiskDetailView: NSStackView, MetricDetailContent {
             )
         )
     }
+
+    var processList: ProcessListView? { processes }
 
     @available(*, unavailable)
     required init(coder: NSCoder) {
@@ -540,6 +594,8 @@ final class NetworkDetailView: NSStackView, MetricDetailContent {
         NSStackView.detailColumn(views)
     }
 
+    var processList: ProcessListView? { processes }
+
     @available(*, unavailable)
     required init(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
@@ -666,6 +722,8 @@ final class BatteryDetailView: NSStackView, MetricDetailContent {
         addFullWidth(
             NSStackView.detailColumn(spacing: 4, [detailSectionTitle(String(localized: "Top processes")), processes]))
     }
+
+    var processList: ProcessListView? { processes }
 
     @available(*, unavailable)
     required init(coder: NSCoder) {

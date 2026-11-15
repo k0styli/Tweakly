@@ -72,8 +72,18 @@ private final class ProcessRowPlaceholder: NSView {
     }
 }
 
+/// One app with everything that works for it, or one process on its own. While the pointer is on a row the person can
+/// end, a button for that appears at its end and the figures make room for it, as the clear button of a notification
+/// appears only under the pointer, so the list stays as quiet as the rest of the popover.
 private final class ProcessRow: NSView {
     private static let iconSize: CGFloat = 16
+    private static let endButtonSize: CGFloat = 16
+    private static let endButtonSpacing: CGFloat = 6
+    private static let truncating: NSParagraphStyle = {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingTail
+        return style
+    }()
 
     private let placeholder: ProcessRowPlaceholder
     private let iconView = NSImageView()
@@ -87,6 +97,17 @@ private final class ProcessRow: NSView {
         alignment: .right
     )
     private let divider = RowDivider()
+    private let endButton = NSButton()
+    /// Where the figures end: at the row's edge, or before the button while it shows.
+    private var figuresTrailing: NSLayoutConstraint?
+    private var trackingArea: NSTrackingArea?
+    private var isPointerInside = false
+    private var isEndButtonShown = false
+    private var entry: ProcessEntry?
+    private var shownName = ""
+    private var shownCount = 0
+
+    var onEnd: ((ProcessEntry) -> Void)?
 
     init(placeholderNameWidth: CGFloat, columns: ProcessListView.Columns?) {
         placeholder = ProcessRowPlaceholder(nameWidth: placeholderNameWidth)
@@ -96,7 +117,8 @@ private final class ProcessRow: NSView {
         iconView.imageScaling = .scaleProportionallyUpOrDown
         // The name beside it says which process it is; VoiceOver would only say "image" first.
         iconView.setAccessibilityElement(false)
-        [placeholder, iconView, nameLabel, valueLabel].forEach(addSubview)
+        setUpEndButton()
+        [placeholder, iconView, nameLabel, valueLabel, endButton].forEach(addSubview)
         valueLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
@@ -113,12 +135,18 @@ private final class ProcessRow: NSView {
             nameLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             valueLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nameLabel.trailingAnchor, constant: 8),
             valueLabel.firstBaselineAnchor.constraint(equalTo: nameLabel.firstBaselineAnchor),
+            endButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            endButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            endButton.widthAnchor.constraint(equalToConstant: Self.endButtonSize),
+            endButton.heightAnchor.constraint(equalToConstant: Self.endButtonSize),
         ])
         if let columns {
             [divider, secondLabel].forEach(addSubview)
             divider.isHidden = true
+            let trailing = secondLabel.trailingAnchor.constraint(equalTo: trailingAnchor)
+            figuresTrailing = trailing
             NSLayoutConstraint.activate([
-                secondLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+                trailing,
                 secondLabel.widthAnchor.constraint(equalToConstant: columns.width),
                 secondLabel.firstBaselineAnchor.constraint(equalTo: nameLabel.firstBaselineAnchor),
                 divider.trailingAnchor.constraint(
@@ -131,7 +159,9 @@ private final class ProcessRow: NSView {
                 valueLabel.widthAnchor.constraint(equalToConstant: columns.width),
             ])
         } else {
-            valueLabel.trailingAnchor.constraint(equalTo: trailingAnchor).isActive = true
+            let trailing = valueLabel.trailingAnchor.constraint(equalTo: trailingAnchor)
+            figuresTrailing = trailing
+            trailing.isActive = true
         }
     }
 
@@ -140,32 +170,152 @@ private final class ProcessRow: NSView {
         fatalError("init(coder:) is not supported")
     }
 
+    /// The task manager's End Task, as a plain symbol in the quiet grey of the figures beside it.
+    private func setUpEndButton() {
+        let title = String(localized: "End Task")
+        endButton.translatesAutoresizingMaskIntoConstraints = false
+        endButton.image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: title)?
+            .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
+        endButton.imagePosition = .imageOnly
+        endButton.isBordered = false
+        endButton.contentTintColor = .tertiaryLabelColor
+        endButton.toolTip = title
+        endButton.target = self
+        endButton.action = #selector(endClicked)
+        endButton.isHidden = true
+        endButton.alphaValue = 0
+    }
+
     /// The source of this list has failed or gone away, which placeholders would hide for good.
     func showUnavailable(_ text: String) {
+        entry = nil
         placeholder.isHidden = true
         iconView.image = nil
         nameLabel.textColor = .secondaryLabelColor
-        nameLabel.setIfChanged(text)
+        nameLabel.stringValue = text
+        shownName = ""
+        shownCount = 0
         valueLabel.setIfChanged("")
         secondLabel.setIfChanged("")
         divider.isHidden = true
+        updateEnding()
     }
 
-    func show(name: String, value: String, second: String?, icon: NSImage?) {
-        nameLabel.textColor = .labelColor
+    func show(_ entry: ProcessEntry?, value: String, second: String?, icon: NSImage?) {
+        self.entry = entry
         placeholder.isHidden = true
-        nameLabel.setIfChanged(name)
+        setName(entry?.name ?? "", count: entry?.processCount ?? 1)
         valueLabel.setIfChanged(value)
         if let second {
             divider.isHidden = false
             secondLabel.setIfChanged(second)
         }
         if iconView.image !== icon { iconView.image = icon }
+        updateEnding()
+    }
+
+    /// The number of processes after the name, quieter than it, as the task manager shows it.
+    private func setName(_ name: String, count: Int) {
+        guard name != shownName || count != shownCount else { return }
+        shownName = name
+        shownCount = count
+        let font = nameLabel.font ?? .systemFont(ofSize: 12)
+        let text = NSMutableAttributedString(
+            string: name, attributes: [.foregroundColor: NSColor.labelColor, .font: font])
+        if count > 1 {
+            text.append(
+                NSAttributedString(
+                    string: " (\(count))", attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: font]))
+        }
+        // An attributed string brings its own paragraph style, which would otherwise cut a long name off mid-letter.
+        text.addAttribute(.paragraphStyle, value: Self.truncating, range: NSRange(location: 0, length: text.length))
+        nameLabel.attributedStringValue = text
+    }
+
+    // MARK: Ending
+
+    private var canEnd: Bool { entry?.canEnd == true && onEnd != nil }
+
+    /// The button follows the pointer, and VoiceOver, which has no pointer to follow, gets the same as an action.
+    private func updateEnding() {
+        if canEnd {
+            let action = NSAccessibilityCustomAction(name: String(localized: "End Task")) { [weak self] in
+                self?.endClicked()
+                return true
+            }
+            nameLabel.setAccessibilityCustomActions([action])
+        } else {
+            nameLabel.setAccessibilityCustomActions([])
+        }
+        setEndButtonShown(isPointerInside && canEnd)
+    }
+
+    private func setEndButtonShown(_ shown: Bool) {
+        guard shown != isEndButtonShown, let figuresTrailing else { return }
+        isEndButtonShown = shown
+        let offset = shown ? -(Self.endButtonSize + Self.endButtonSpacing) : 0
+        if shown { endButton.isHidden = false }
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, window != nil else {
+            figuresTrailing.constant = offset
+            endButton.alphaValue = shown ? 1 : 0
+            endButton.isHidden = !shown
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.allowsImplicitAnimation = true
+            figuresTrailing.animator().constant = offset
+            endButton.animator().alphaValue = shown ? 1 : 0
+            layoutSubtreeIfNeeded()
+        } completionHandler: { [weak self] in
+            // The pointer may have come back meanwhile, and a button nobody sees must not take a click.
+            MainActor.assumeIsolated {
+                guard let self, !self.isEndButtonShown else { return }
+                self.endButton.isHidden = true
+            }
+        }
+    }
+
+    #if TWEAKLY_AUTOMATION
+        /// The pointer coming onto the row or leaving it, which a test on a display nobody sees cannot move there.
+        func pretendPointer(inside: Bool) {
+            isPointerInside = inside
+            setEndButtonShown(inside && canEnd)
+        }
+
+        func pressEnd() {
+            endButton.performClick(nil)
+        }
+    #endif
+
+    @objc private func endClicked() {
+        guard let entry, entry.canEnd else { return }
+        onEnd?(entry)
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        guard trackingArea == nil else { return }
+        // Always, as the popover's app is not the active one.
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isPointerInside = true
+        setEndButtonShown(canEnd)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isPointerInside = false
+        setEndButtonShown(false)
     }
 }
 
-/// The processes using the most of something. Every row exists from the start and shows a placeholder,
-/// so the popover keeps its size and never looks empty while the first figures arrive.
+/// The apps and processes using the most of something, each app with its helpers added up as the task manager shows it.
+/// Every row exists from the start and shows a placeholder, so the popover keeps its size and never looks empty while
+/// the first figures arrive.
 final class ProcessListView: NSStackView {
     /// Two values for each process, in fixed columns so the divider between them lines up across rows.
     struct Columns {
@@ -192,6 +342,29 @@ final class ProcessListView: NSStackView {
     private let icons = ProcessIconProvider()
     private var emptyUpdates = 0
     private var shownEntries: [ProcessEntry] = []
+
+    #if TWEAKLY_AUTOMATION
+        func pretendPointer(onRow index: Int) {
+            for (rowIndex, row) in rows.enumerated() { row.pretendPointer(inside: rowIndex == index) }
+        }
+
+        func pressEnd(onRow index: Int) {
+            guard rows.indices.contains(index) else { return }
+            rows[index].pressEnd()
+        }
+
+        /// One line a row: its name, how many processes it adds up, its main process and whether it can be ended.
+        var rowsDescription: String {
+            shownEntries.enumerated().map { index, entry in
+                "\(index)\t\(entry.name)\t\(entry.processCount)\t\(entry.pid)\t\(entry.canEnd)"
+            }.joined(separator: "\n") + "\n"
+        }
+    #endif
+
+    /// Asks to end a row's app or process. Without it, no row offers to.
+    var onEnd: ((ProcessEntry) -> Void)? {
+        didSet { rows.forEach { $0.onEnd = onEnd } }
+    }
 
     init(columns: Columns? = nil) {
         rows = ProcessListView.placeholderNameWidths.map { ProcessRow(placeholderNameWidth: $0, columns: columns) }
@@ -227,9 +400,9 @@ final class ProcessListView: NSStackView {
             row.isHidden = false
             if index < entries.count {
                 let entry = entries[index]
-                row.show(name: entry.name, value: value(entry), second: second?(entry), icon: icons.icon(for: entry))
+                row.show(entry, value: value(entry), second: second?(entry), icon: icons.icon(for: entry))
             } else {
-                row.show(name: "", value: "", second: second == nil ? nil : "", icon: nil)
+                row.show(nil, value: "", second: second == nil ? nil : "", icon: nil)
             }
         }
     }

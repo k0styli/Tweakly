@@ -62,10 +62,13 @@ private struct SimpleRingReading {
             fraction = cpu.usage
             text = Format.percent(cpu.usage)
             symbol = MetricKind.cpu.simpleSymbol
+            // Red when there is almost nothing left, as in the graph of the details.
+            if Float(cpu.usage) >= SparklineView.highLoad { color = .systemRed }
         case .gpu(let gpu):
             fraction = gpu.usage ?? 0
             text = gpu.usage.map { Format.percent($0) } ?? "—"
             symbol = MetricKind.gpu.simpleSymbol
+            if Float(fraction) >= SparklineView.highLoad { color = .systemRed }
         case .memory(let memory):
             fraction = memory.usedFraction
             text = Format.percent(memory.usedFraction)

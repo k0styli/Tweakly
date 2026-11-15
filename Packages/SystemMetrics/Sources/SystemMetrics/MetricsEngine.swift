@@ -5,13 +5,19 @@ import Foundation
 protocol MetricSampler: AnyObject {
     /// Forgets rate baselines, because time and counters may have jumped (for example after sleep).
     func reset()
+    /// Reads only what is already open, so a sample is never held up by opening something.
     func sample(level: SamplingLevel) -> MetricUpdate?
+    /// Opens what this level needs that is slow to open: sensors, connections, pings and helper processes, and takes
+    /// their first readings. Called once a sample has gone out, and again after each one while they stay open, so it
+    /// returns at once when there is nothing left to open.
+    func openDetails(level: SamplingLevel)
     /// Details are no longer on screen. Sensors, connections, pings and helper processes stop here and
     /// now, whatever the next sample's timing, because a menu level may not sample for hours.
     func closeDetails()
 }
 
 extension MetricSampler {
+    func openDetails(level: SamplingLevel) {}
     func closeDetails() {}
 }
 
@@ -138,7 +144,15 @@ public actor MetricsEngine {
     private func sample(_ kinds: [MetricKind], now: TimeInterval) {
         guard !kinds.isEmpty else { return }
         var updates: [MetricUpdate] = []
-        let ranking = processes?.rank()
+        var lists = ProcessSampler.Lists()
+        for kind in kinds {
+            if let level = plan.levels[kind], plan.listsProcesses(of: kind, at: level) {
+                lists.formUnion(ProcessSampler.Lists(listing: kind))
+            }
+        }
+        // A new list's first reading looks up who every process is, which waits until the rest has gone out. Its rows
+        // could only show memory anyway: everything else needs the second reading, a quarter of a second later.
+        let ranking = processes?.hasBaseline == true && !lists.isEmpty ? processes?.rank(lists: lists) : nil
         for kind in kinds {
             guard let level = plan.levels[kind], var update = samplers[kind]?.sample(level: level) else { continue }
             lastSampled[kind] = now
@@ -169,6 +183,14 @@ public actor MetricsEngine {
             if DemoData.isOn { updates = updates.map(DemoData.disguise) }
         #endif
         if !updates.isEmpty { output(updates) }
+        if let processes, !processes.hasBaseline, !lists.isEmpty { _ = processes.rank(lists: lists) }
+        // Opening the GPU's sensors took 190 ms and the processor's 40 ms on an M2, and a popover showed nothing at all
+        // until they were ready. Opened after the quick figures have gone out, they hold up nothing on screen, and
+        // their first values come with the follow-up reading as before.
+        for kind in kinds {
+            guard let level = plan.levels[kind], level >= .summary else { continue }
+            samplers[kind]?.openDetails(level: level)
+        }
     }
 
     private func rescheduleTimer() {

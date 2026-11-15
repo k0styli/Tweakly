@@ -318,9 +318,35 @@
             case "status":
                 guard let state = stats?.automationDescription else { return }
                 try? state.write(toFile: argument, atomically: true, encoding: .utf8)
+            case "details-hover":
+                // `details-hover N`: the pointer on the Nth row of the open popover's list, or off the list with -1.
+                stats?.detailProcessList?.pretendPointer(onRow: Int(argument) ?? -1)
+            case "details-rows":
+                // `details-rows FILE`: the open popover's list as the person sees it, a row a line.
+                try? (stats?.detailProcessList?.rowsDescription ?? "").write(
+                    toFile: argument, atomically: true, encoding: .utf8)
+            case "details-end":
+                // `details-end N`: a click on the Nth row's button, which asks before ending anything.
+                stats?.detailProcessList?.pressEnd(onRow: Int(argument) ?? -1)
+            case "details-hold":
+                // `details-hold 1`: real readings stop reaching the popover until `details-hold 0`.
+                stats?.holdsDetails = argument == "1"
+            case "details-feed":
+                // `details-feed cpu|gpu|memory V,V,... [P,P,...]`: a made-up history in the open popover, loads as
+                // shares, and for memory the pressure at each point as 0, 1 or 2.
+                if words.count > 2, let kind = MetricKind(rawValue: argument) {
+                    let values = words[2].split(separator: ",").compactMap { Float($0) }
+                    let pressure = words.count > 3 ? words[3].split(separator: ",").compactMap { UInt8($0) } : []
+                    if let update = DemoData.madeUp(kind, history: values, pressure: pressure) {
+                        stats?.feedDetails(update)
+                    }
+                }
             case "dump-details":
                 if let view = stats?.detailContentView {
-                    var lines: [String] = ["fitting=\(view.fittingSize) frame=\(view.frame)"]
+                    var lines: [String] = [
+                        "fitting=\(view.fittingSize) frame=\(view.frame)"
+                            + " firstFigures=\(stats?.detailFirstFiguresDelay.map { "\($0) ms" } ?? "none")"
+                    ]
                     Self.describe(view, depth: 0, into: &lines)
                     try? lines.joined(separator: "\n").write(toFile: argument, atomically: true, encoding: .utf8)
                 }

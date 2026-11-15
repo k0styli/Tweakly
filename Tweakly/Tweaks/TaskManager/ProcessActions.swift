@@ -1,4 +1,5 @@
 import AppKit
+import SystemMetrics
 import TaskManagerCore
 import os
 
@@ -96,6 +97,19 @@ enum ProcessActions {
         name: String, processCount: Int, logsOut: Bool, isSystem: Bool, force: Bool, in window: NSWindow,
         done: @escaping (_ force: Bool) -> Void
     ) {
+        let alert = question(name: name, processCount: processCount, logsOut: logsOut, isSystem: isSystem, force: force)
+        alert.beginSheetModal(for: window) { response in
+            switch response {
+            case .alertFirstButtonReturn: done(force)
+            case .alertSecondButtonReturn where !force: done(true)
+            default: break
+            }
+        }
+    }
+
+    /// The alert that asks, with its buttons in the order the responses above expect: End Task, Force Quit, Cancel, or
+    /// Force Quit and Cancel when that is what was asked for.
+    static func question(name: String, processCount: Int, logsOut: Bool, isSystem: Bool, force: Bool) -> NSAlert {
         let alert = NSAlert()
         alert.alertStyle = logsOut ? .critical : .warning
         alert.messageText =
@@ -126,12 +140,35 @@ enum ProcessActions {
             alert.addButton(withTitle: String(localized: "Force Quit"))
         }
         alert.addButton(withTitle: String(localized: "Cancel")).keyEquivalent = "\u{1b}"
-        alert.beginSheetModal(for: window) { response in
-            switch response {
-            case .alertFirstButtonReturn: done(force)
-            case .alertSecondButtonReturn where !force: done(true)
-            default: break
+        return alert
+    }
+
+    /// Ends a row of a popover's list: the app it stands for, which takes its helpers with it, or else each of its
+    /// processes that is still the one that was listed. Only the person's own processes get a row that can be ended.
+    static func end(_ entry: ProcessEntry, force: Bool) {
+        if let bundle = entry.bundlePath, let app = runningApp(at: bundle, preferring: entry), !app.isTerminated {
+            let asked = force ? app.forceTerminate() : app.terminate()
+            if asked { return }
+        }
+        let signal = force ? SIGKILL : SIGTERM
+        let own = getpid()
+        for member in entry.members where canEnd(member.pid) && member.pid != own && member.isRunning {
+            if kill(member.pid, signal) != 0 {
+                log.notice("Could not end \(member.pid, privacy: .public): \(errno, privacy: .public)")
             }
         }
+    }
+
+    /// The app a row stands for. The row's own number names it when that is still the app's process; otherwise any copy
+    /// of the app that is running, the one with a Dock icon first.
+    private static func runningApp(at bundle: String, preferring entry: ProcessEntry) -> NSRunningApplication? {
+        let head = entry.members.first { $0.pid == entry.pid }
+        if head?.isRunning ?? true, let app = NSRunningApplication(processIdentifier: entry.pid),
+            app.bundleURL?.path == bundle
+        {
+            return app
+        }
+        let copies = NSWorkspace.shared.runningApplications.filter { $0.bundleURL?.path == bundle }
+        return copies.first { $0.activationPolicy == .regular } ?? copies.first
     }
 }

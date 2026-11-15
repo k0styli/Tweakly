@@ -27,6 +27,16 @@ final class NetworkProcessSampler {
         let state = Mutex(State())
     }
 
+    /// What one app, or one process on its own, adds up to.
+    private struct Row {
+        let owner: ProcessOwner
+        var down = 0.0
+        var up = 0.0
+        var isActive = false
+        var total: UInt64 = 0
+        var pids: [Int32] = []
+    }
+
     private static let listSize = 5
     private static let pause: TimeInterval = 1
     /// A tool that keeps failing is not worth starting every second.
@@ -69,33 +79,38 @@ final class NetworkProcessSampler {
     private static func update(_ shared: Shared, usage: [Int32: Usage], now: TimeInterval) {
         shared.state.withLock { state in
             let elapsed = state.lastTime.map { now - $0 }
-            var active: [(pid: Int32, down: Double, up: Double)] = []
-            var quiet: [(pid: Int32, total: UInt64)] = []
-            for (pid, current) in usage {
+            // An app's processes count as one row, as in the other lists.
+            var rows: [ProcessOwner.Key: Row] = [:]
+            var order: [ProcessOwner.Key] = []
+            state.identities.removeAll { usage[$0] == nil }
+            for (pid, current) in usage.sorted(by: { $0.key < $1.key }) {
+                let owner = state.identities.owner(of: pid, fallbackName: current.name)
+                var row = rows[owner.key] ?? Row(owner: owner)
+                if row.pids.isEmpty { order.append(owner.key) }
+                row.pids.append(pid)
+                row.total &+= current.received &+ current.sent
                 // A process that closed a socket adds up to less than before, which only means an unknown window.
                 if let elapsed, elapsed > 0, let last = state.last[pid],
                     current.received >= last.received, current.sent >= last.sent,
                     current.received > last.received || current.sent > last.sent
                 {
-                    active.append(
-                        (
-                            pid, Double(current.received - last.received) / elapsed,
-                            Double(current.sent - last.sent) / elapsed
-                        ))
-                } else {
-                    quiet.append((pid, current.received &+ current.sent))
+                    row.down += Double(current.received - last.received) / elapsed
+                    row.up += Double(current.sent - last.sent) / elapsed
+                    row.isActive = true
                 }
+                rows[owner.key] = row
             }
+            let all = order.compactMap { rows[$0] }
             // Few processes transfer anything at one moment. Those with the most traffic so far fill the
             // remaining rows, so the list holds its size instead of leaving a hole that comes and goes.
-            let rows =
-                active.sorted { $0.down + $0.up > $1.down + $1.up }
-                + quiet.filter { $0.total > 0 }.sorted { $0.total > $1.total }.map { ($0.pid, 0, 0) }
-            state.identities.removeAll { usage[$0] == nil }
-            state.ranking = rows.prefix(listSize).map { pid, down, up in
-                let identity = state.identities.identity(of: pid, fallbackName: usage[pid]?.name)
-                return ProcessEntry(
-                    pid: pid, name: identity.name, path: identity.path, cpu: 0, memory: 0, downRate: down, upRate: up)
+            let shown =
+                all.filter(\.isActive).sorted { $0.down + $0.up > $1.down + $1.up }
+                + all.filter { !$0.isActive && $0.total > 0 }.sorted { $0.total > $1.total }
+            state.ranking = shown.prefix(listSize).map { row in
+                var entry = state.identities.entry(for: row.owner, pids: row.pids)
+                entry.downRate = row.down
+                entry.upRate = row.up
+                return entry
             }
             state.last = usage
             state.lastTime = now

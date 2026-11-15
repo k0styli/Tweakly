@@ -36,6 +36,35 @@
             }
         }
 
+        /// A reading with a graph given by a test, ending on its last value, for drawing what the Mac is not doing now.
+        /// Memory's pressure is given for each point as 0, 1 or 2.
+        public static func madeUp(_ kind: MetricKind, history: [Float], pressure: [UInt8] = []) -> MetricUpdate? {
+            let last = Double(history.last ?? 0)
+            switch kind {
+            case .cpu:
+                var cpu = CPUSnapshot(usage: last, user: last * 0.7, system: last * 0.3)
+                cpu.history = history
+                return .cpu(cpu)
+            case .gpu:
+                var gpu = GPUSnapshot()
+                gpu.usage = last
+                gpu.history = history
+                return .gpu(gpu)
+            case .memory:
+                var memory = MemorySnapshot()
+                memory.total = 8 << 30
+                memory.usable = memory.total
+                memory.used = UInt64(Double(memory.total) * last)
+                memory.app = memory.used
+                memory.history = history
+                memory.pressureHistory = pressure.map { MemoryPressure(rawValue: $0) ?? .normal }
+                memory.pressure = memory.pressureHistory.last ?? .normal
+                return .memory(memory)
+            default:
+                return nil
+            }
+        }
+
         // MARK: Graphs
 
         /// A calm graph over the last two minutes that ends exactly on `value`: two slow waves and a few short peaks,
@@ -135,6 +164,7 @@
                 value.swapUsed = 0
                 value.pressure = .normal
                 value.history = graph(ending: memory, spread: 0.015, seed: 1.2)
+                value.pressureHistory = []
                 value.topProcesses = [
                     entry(safari, 4_101, memory: 1_210), entry(photos, 4_104, memory: 742),
                     entry(mail, 4_105, memory: 486), entry(music, 4_103, memory: 412),

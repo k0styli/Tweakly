@@ -53,7 +53,7 @@ final class GPUSampler: MetricSampler {
         snapshot.renderer = Self.integer(rendererKey, in: statistics).map(Self.fraction)
         snapshot.tiler = Self.integer(tilerKey, in: statistics).map(Self.fraction)
         snapshot.memoryInUse = Self.integer(memoryInUseKey, in: statistics).map { UInt64(max($0, 0)) }
-        readSensors(now: uptimeSeconds(), withEverything: level == .detail)
+        readSensors(now: uptimeSeconds())
         snapshot.temperature = temperature
         guard level == .detail else { return .gpu(snapshot) }
         snapshot.memoryAllocated = Self.integer(allocatedKey, in: statistics).map { UInt64(max($0, 0)) }
@@ -65,22 +65,28 @@ final class GPUSampler: MetricSampler {
         return .gpu(snapshot)
     }
 
-    /// Everything here stays closed unless it is on screen, so the menu bar value never pays for it.
-    private func readSensors(now: TimeInterval, withEverything: Bool) {
-        if !detailsOpen {
-            detailsOpen = true
-            thermal = ThermalReader()
-            temperature = thermal?.gpuTemperature()
-            if withEverything {
-                sensors = GPUSensorReader()
-                processes = GPUProcessSampler()
-                _ = sensors?.read(now: now)
-                _ = sensors?.framesPerSecond(now: now)
-            }
-            lastSensorRead = now
-            lastFrameRead = now
-            return
+    /// Everything here stays closed unless it is on screen, so the menu bar value never pays for it. Five IOReport
+    /// subscriptions take about 190 ms to open on an M2, which is why this waits until the quick figures have gone out.
+    func openDetails(level: SamplingLevel) {
+        guard !detailsOpen else { return }
+        detailsOpen = true
+        thermal = ThermalReader()
+        temperature = thermal?.gpuTemperature()
+        if level == .detail {
+            sensors = GPUSensorReader()
+            processes = GPUProcessSampler()
+            // Taken after the subscriptions are open, so their first window does not count the time spent opening them.
+            let now = uptimeSeconds()
+            _ = sensors?.read(now: now)
+            _ = sensors?.framesPerSecond(now: now)
+            if service != 0 { _ = processes?.rank(accelerator: service) }
         }
+        lastSensorRead = uptimeSeconds()
+        lastFrameRead = lastSensorRead
+    }
+
+    private func readSensors(now: TimeInterval) {
+        guard detailsOpen else { return }
         // The frame rate changes the moment anything moves, so it keeps the pace of the details.
         if now - lastFrameRead >= minimumSampleInterval {
             lastFrameRead = now

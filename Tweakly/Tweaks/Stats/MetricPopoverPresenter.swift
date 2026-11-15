@@ -6,12 +6,17 @@ final class MetricPopoverPresenter {
     private let onChange: () -> Void
     private let popover = MenuBarPopover()
     private var lastClosed: (popover: StatsPopover, time: TimeInterval)?
+    /// The question before ending an app or a process, while it is up.
+    private var endQuestion: EndProcessQuestion?
 
     private(set) var current: StatsPopover?
     var fanActions: FanQuickActions?
 
     #if TWEAKLY_AUTOMATION
         var contentView: NSView? { popover.controller?.view }
+        /// Milliseconds from the popover's content loading to its first figures, for checking it never shows empty.
+        var firstFiguresDelay: Double? { (popover.controller as? MetricDetailViewController)?.firstFiguresDelay }
+        var processList: ProcessListView? { (popover.controller as? MetricDetailViewController)?.processList }
     #endif
 
     init(onChange: @escaping () -> Void) {
@@ -39,6 +44,7 @@ final class MetricPopoverPresenter {
         close()
         let shown = item.popover
         let controller = MetricDetailViewController(popover: shown, fanActions: fanActions)
+        controller.onEndProcess = { [weak self] entry in self?.askToEnd(entry) }
         // Set first: macOS 27 may begin the item's session, and ask for this again, while the popover appears.
         current = shown
         // The controller keeps its preferred size up to date, which the popover follows by itself.
@@ -68,6 +74,16 @@ final class MetricPopoverPresenter {
         popover.close()
     }
 
+    /// The task manager's question, in a window of its own: the popover closes first, as it would at any click outside
+    /// it, and the window stays up however long the person takes to answer.
+    private func askToEnd(_ entry: ProcessEntry) {
+        close()
+        endQuestion?.close()
+        let question = EndProcessQuestion(entry: entry) { [weak self] in self?.endQuestion = nil }
+        endQuestion = question
+        question.show()
+    }
+
     func deliver(_ update: MetricUpdate) {
         (popover.controller as? MetricDetailViewController)?.update(update)
     }
@@ -77,5 +93,60 @@ final class MetricPopoverPresenter {
         lastClosed = (shown, ProcessInfo.processInfo.systemUptime)
         current = nil
         onChange()
+    }
+}
+
+/// A real `NSAlert` with the task manager's question about one row of a popover's list. Shown as a window rather than run
+/// modally, so the agent's menu bar items go on updating while it is up, as the Finder menu's alert does.
+private final class EndProcessQuestion: NSObject {
+    private let entry: ProcessEntry
+    private let alert: NSAlert
+    private let onClose: () -> Void
+
+    init(entry: ProcessEntry, onClose: @escaping () -> Void) {
+        self.entry = entry
+        self.onClose = onClose
+        // Only the person's own processes get a row that can be ended, so none of them belongs to another user.
+        let logsOut = entry.bundlePath == nil && ["WindowServer", "loginwindow"].contains(entry.name)
+        alert = ProcessActions.question(
+            name: entry.name, processCount: entry.processCount, logsOut: logsOut, isSystem: false, force: false)
+        super.init()
+        let actions: [Selector] = [#selector(endTask), #selector(forceQuit), #selector(close)]
+        for (button, action) in zip(alert.buttons, actions) {
+            button.target = self
+            button.action = action
+        }
+        alert.layout()
+        alert.window.appearance = AppSettings.savedTheme.appearance
+    }
+
+    func show() {
+        if QuietScreen.mayActivate { NSApp.activate() }
+        alert.window.center()
+        #if TWEAKLY_AUTOMATION
+            // A test copy keeps it on its own display, out of sight.
+            QuietScreen.place(alert.window)
+        #endif
+        alert.window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func endTask() {
+        ProcessActions.end(entry, force: false)
+        close()
+    }
+
+    @objc private func forceQuit() {
+        ProcessActions.end(entry, force: true)
+        close()
+    }
+
+    @objc func close() {
+        alert.window.orderOut(nil)
+        // The agent came forward only for the question: the keyboard goes back to the app the person was using, unless
+        // another window of the agent is still up.
+        let window = alert.window
+        let othersShow = NSApp.windows.contains { $0 !== window && $0.isVisible && $0.canBecomeKey }
+        if NSApp.isActive, !othersShow { NSApp.deactivate() }
+        onClose()
     }
 }
