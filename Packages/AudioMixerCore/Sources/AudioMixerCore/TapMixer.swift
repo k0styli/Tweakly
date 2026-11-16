@@ -39,20 +39,15 @@ public final class GainBoard: @unchecked Sendable {
 /// The taps' streams are the last of the aggregate device's inputs, after the output device's own, such as a headset's
 /// microphone, whose number can change while it runs.
 ///
-/// `@unchecked Sendable`: `ramps`, the scratch buffers and the peaks are touched only by the audio thread, which calls
+/// `@unchecked Sendable`: `ramps` and the peaks are touched only by the audio thread, which calls
 /// `render` one cycle at a time; the main thread reads the peaks for tests alone.
 public final class TapMixer: @unchecked Sendable {
-    /// A tap's sound goes through its equalizer this many frames at a time, in buffers made once.
-    static let chunk = 1024
-
     public let gains: GainBoard
     /// One for each tap, flat until its app has one.
     public let equalizers: [EqualizerProcessor]
     /// The output's own, over everything played on it.
     public let outputEqualizer: EqualizerProcessor
     private let ramps: UnsafeMutablePointer<GainRamp>
-    private let scratchLeft: UnsafeMutablePointer<Float>
-    private let scratchRight: UnsafeMutablePointer<Float>
     /// Whether to keep the peaks, which only tests read.
     private let meters: Bool
     public private(set) var inputPeak: Float = 0
@@ -65,17 +60,11 @@ public final class TapMixer: @unchecked Sendable {
         outputEqualizer = EqualizerProcessor(sampleRate: sampleRate)
         ramps = .allocate(capacity: max(gains.count, 1))
         for (index, gain) in gains.enumerated() { (ramps + index).initialize(to: GainRamp(gain)) }
-        scratchLeft = .allocate(capacity: Self.chunk)
-        scratchLeft.initialize(repeating: 0, count: Self.chunk)
-        scratchRight = .allocate(capacity: Self.chunk)
-        scratchRight.initialize(repeating: 0, count: Self.chunk)
     }
 
     deinit {
         ramps.deinitialize(count: gains.count)
         ramps.deallocate()
-        scratchLeft.deallocate()
-        scratchRight.deallocate()
     }
 
     /// The output's rate, which every filter is drawn for. Main thread.
@@ -129,39 +118,37 @@ public final class TapMixer: @unchecked Sendable {
             totalGain += max(ramps[tap].current, target)
             let (first, step) = ramps[tap].begin(towards: target, frames: count)
             let equalizer = equalizers[tap]
-            var done = 0
-            while done < count {
-                let length = min(Self.chunk, count - done)
-                for frame in 0..<length {
-                    let l = source[(done + frame) * channels]
-                    scratchLeft[frame] = l
-                    scratchRight[frame] = channels > 1 ? source[(done + frame) * channels + 1] : l
+            // Most taps have no equalizer of their own, the output's whole sound above all: straight into the sum.
+            // One that has is run in the same pass, frame by frame, with nothing copied aside.
+            let equalizes = equalizer.hasWork && equalizer.beginCycle(frames: count)
+            for frame in 0..<count {
+                let gain = first + step * Float(frame)
+                var l = source[frame * channels]
+                var r = channels > 1 ? source[frame * channels + 1] : l
+                if meters { peakIn = max(peakIn, abs(l), abs(r)) }
+                if equalizes {
+                    let y = equalizer.filterFrame(SIMD2(Double(l), Double(r)))
+                    l = Float(y.x)
+                    r = Float(y.y)
                 }
-                if meters {
-                    for frame in 0..<length { peakIn = max(peakIn, abs(scratchLeft[frame]), abs(scratchRight[frame])) }
+                if let right {
+                    left.data[frame * left.stride] += l * gain
+                    right.data[frame * right.stride] += r * gain
+                } else {
+                    left.data[frame * left.stride] += (l + r) * 0.5 * gain
                 }
-                equalizer.process(
-                    left: scratchLeft, leftStride: 1, right: scratchRight, rightStride: 1, frames: length)
-                if !equalizer.isBypassed { isEqualizing = true }
-                for frame in 0..<length {
-                    let gain = first + step * Float(done + frame)
-                    let l = scratchLeft[frame]
-                    let r = scratchRight[frame]
-                    let at = done + frame
-                    if let right {
-                        left.data[at * left.stride] += l * gain
-                        right.data[at * right.stride] += r * gain
-                    } else {
-                        left.data[at * left.stride] += (l + r) * 0.5 * gain
-                    }
-                }
-                done += length
+            }
+            if equalizes {
+                equalizer.endCycle(frames: count)
+                isEqualizing = true
             }
         }
-        outputEqualizer.process(
-            left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
-            frames: frames)
-        if !outputEqualizer.isBypassed { isEqualizing = true }
+        if outputEqualizer.hasWork {
+            outputEqualizer.process(
+                left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
+                frames: frames)
+            if !outputEqualizer.isBypassed { isEqualizing = true }
+        }
         if totalGain > 1 || isEqualizing {
             for frame in 0..<frames {
                 left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride])
