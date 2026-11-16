@@ -10,6 +10,11 @@ struct AudioDevice: Identifiable, Equatable {
     let uid: String
     let name: String
     let kind: AudioDeviceKind
+    /// Its channels in that direction, all streams together: a surround receiver has more than two.
+    var channels = 2
+
+    /// The mixer's sound is stereo, and taking a surround output whole would fold it down.
+    var isStereo: Bool { channels <= 2 }
 }
 
 /// Core Audio's devices, volumes and clients, through public API only. Every call is a property of an audio object,
@@ -29,7 +34,7 @@ nonisolated enum AudioSystem {
             let kind = AudioDeviceKind.of(
                 transport: AudioDeviceKind.code(transport), dataSource: source.map(AudioDeviceKind.code), name: name,
                 isInput: input)
-            return AudioDevice(id: id, uid: uid, name: name, kind: kind)
+            return AudioDevice(id: id, uid: uid, name: name, kind: kind, channels: channelCount(of: id, input: input))
         }
     }
 
@@ -63,6 +68,21 @@ nonisolated enum AudioSystem {
                 &size, &translated)
         }
         return status == noErr && translated != kAudioObjectUnknown ? translated : nil
+    }
+
+    /// Every channel of the device's streams in that direction.
+    static func channelCount(of id: AudioObjectID, input: Bool) -> Int {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration, mScope: scope(input),
+            mElement: kAudioObjectPropertyElementMain)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size) == noErr, size > 0 else { return 0 }
+        let list = UnsafeMutableRawPointer.allocate(
+            byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { list.deallocate() }
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, list) == noErr else { return 0 }
+        return UnsafeMutableAudioBufferListPointer(list.assumingMemoryBound(to: AudioBufferList.self))
+            .reduce(0) { $0 + Int($1.mNumberChannels) }
     }
 
     static func streamCount(of id: AudioObjectID, input: Bool) -> Int {

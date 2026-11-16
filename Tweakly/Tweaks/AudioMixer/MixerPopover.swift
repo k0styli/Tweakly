@@ -40,6 +40,7 @@ final class MixerPopoverPresenter {
         guard !isShown else { return }
         let controller = MixerViewController(options: options())
         controller.onResize = { [weak self] in self?.popover.resize() }
+        controller.onClose = { [weak self] in self?.close() }
         popover.show(
             controller, under: item, setsSizeFirst: true,
             fittingSize: { [weak controller] in controller?.fittingContentSize ?? .zero }
@@ -67,6 +68,8 @@ final class MixerViewController: NSViewController {
 
     private let options: MixerOptions
     var onResize: (() -> Void)?
+    /// Closes the popover, before the window opens on top of it.
+    var onClose: (() -> Void)?
 
     private let header = DetailHeaderView(title: String(localized: "Sound"), widestValue: "100 %")
     private let outputVolume = MixerVolumeRow(
@@ -244,14 +247,61 @@ final class MixerViewController: NSViewController {
 
     private func showOutputs() {
         outputsColumn.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        let book = AudioRuleStore.load()
+        let custom = AudioRuleStore.customPresets()
+        shownEqualizers = [:]
         for device in outputs {
-            let row = MixerDeviceRow(device: device, isCurrent: device.id == outputID)
+            let settings = book.equalizer(forOutput: device.uid)
+            let described = settings.isFlat ? nil : EqualizerNames.describe(settings, custom: custom)
+            shownEqualizers[device.uid] = described
+            let row = MixerDeviceRow(device: device, isCurrent: device.id == outputID, equalizer: described)
             row.onChoose = { [weak self] in
                 AudioSystem.setDefaultDevice(device.id, input: false)
                 self?.refreshDevices()
             }
+            row.makeMenu = { [weak self] in self?.equalizerMenu(for: device) ?? NSMenu() }
             outputsColumn.addFullWidth(row)
         }
+    }
+
+    /// An output's equalizer as a menu, from the rules as they are now.
+    private func equalizerMenu(for device: AudioDevice) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(.sectionHeader(title: String(localized: "Equalizer")))
+        guard device.isStereo else {
+            // The mixer's sound is stereo: a surround output is left as it is.
+            let note = menu.addItem(
+                withTitle: String(localized: "For Stereo Outputs Only"), action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            return menu
+        }
+        let settings = AudioRuleStore.load().equalizer(forOutput: device.uid)
+        for item in EqualizerMenu.items(
+            settings: settings, custom: AudioRuleStore.customPresets(),
+            choose: { AudioRuleStore.setEqualizer($0, forOutput: device.uid, name: device.name) },
+            customize: { [weak self] in
+                self?.onClose?()
+                EqualizerMenu.customize("output:\(device.uid)")
+            })
+        {
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    /// Each output's equalizer as last shown, so a rule moving a slider many times a second does not lay the rows out
+    /// again.
+    private var shownEqualizers: [String: String] = [:]
+
+    private func equalizersChanged() -> Bool {
+        let book = AudioRuleStore.load()
+        let custom = AudioRuleStore.customPresets()
+        for device in outputs {
+            let settings = book.equalizer(forOutput: device.uid)
+            let described = settings.isFlat ? nil : EqualizerNames.describe(settings, custom: custom)
+            if shownEqualizers[device.uid] != described { return true }
+        }
+        return false
     }
 
     private func showInputs() {
@@ -370,6 +420,10 @@ final class MixerViewController: NSViewController {
             appsNote.isHidden = noteHidden
             changed = true
         }
+        if equalizersChanged() {
+            showOutputs()
+            changed = true
+        }
         // Solving the layout as a slider moves, just to find the same height, would be the costliest thing here.
         if changed { resize() }
     }
@@ -377,6 +431,10 @@ final class MixerViewController: NSViewController {
     private func makeRow(for app: MixerApp) -> MixerAppRow {
         let row = MixerAppRow(bundleID: app.id)
         row.onChange = { bundleID, change in AudioRuleStore.update(bundleID, change) }
+        row.onCustomize = { [weak self] bundleID in
+            self?.onClose?()
+            EqualizerMenu.customize("app:\(bundleID)")
+        }
         return row
     }
 
@@ -544,14 +602,15 @@ final class MixerVolumeRow: NSView {
     }
 }
 
-/// An output to choose: its symbol, its name and a check on the one in use. The whole row is the button, as in the
-/// system's sound menu, and the pointer lights it as it lights a menu's row, a little past the row on both sides so the
-/// symbols stay in line with the apps'.
+/// An output to choose: its symbol, its name, its equalizer while it has one, and a check on the one in use. The whole
+/// row is the button, as in the system's sound menu, and the pointer lights it as it lights a menu's row, a little past
+/// the row on both sides so the symbols stay in line with the apps'. A right click opens its equalizer's menu.
 final class MixerDeviceRow: NSControl {
     var onChoose: (() -> Void)?
+    var makeMenu: (() -> NSMenu)?
     private let highlight = RowHighlight()
 
-    init(device: AudioDevice, isCurrent: Bool) {
+    init(device: AudioDevice, isCurrent: Bool, equalizer: String?) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         highlight.isHidden = true
@@ -568,7 +627,11 @@ final class MixerDeviceRow: NSControl {
         check.contentTintColor = .controlAccentColor
         check.isHidden = !isCurrent
         check.translatesAutoresizingMaskIntoConstraints = false
-        [highlight, icon, name, check].forEach(addSubview)
+        let detail = NSTextField.detailLabel(
+            equalizer ?? "", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
+        detail.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        name.setContentCompressionResistancePriority(.defaultLow - 1, for: .horizontal)
+        [highlight, icon, name, detail, check].forEach(addSubview)
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 28),
             highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: -6),
@@ -579,14 +642,18 @@ final class MixerDeviceRow: NSControl {
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
             name.leadingAnchor.constraint(equalTo: leadingAnchor, constant: MixerColumn.textStart),
             name.centerYAnchor.constraint(equalTo: centerYAnchor),
-            name.trailingAnchor.constraint(lessThanOrEqualTo: check.leadingAnchor, constant: -6),
+            detail.leadingAnchor.constraint(greaterThanOrEqualTo: name.trailingAnchor, constant: 6),
+            detail.firstBaselineAnchor.constraint(equalTo: name.firstBaselineAnchor),
+            // Where the check is, so the equalizer of every output lines up whether it is in use or not.
+            detail.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
             check.trailingAnchor.constraint(equalTo: trailingAnchor),
             check.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(device.name)
-        setAccessibilityValue(isCurrent ? String(localized: "Selected") : nil)
+        let state = [isCurrent ? String(localized: "Selected") : nil, equalizer].compactMap { $0 }
+        setAccessibilityValue(state.isEmpty ? nil : state.joined(separator: ", "))
         addTrackingArea(
             NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
     }
@@ -607,6 +674,84 @@ final class MixerDeviceRow: NSControl {
         onChoose?()
         return true
     }
+
+    override func menu(for event: NSEvent) -> NSMenu? { makeMenu?() }
+
+    override func accessibilityPerformShowMenu() -> Bool {
+        guard let menu = makeMenu?() else { return false }
+        menu.popUp(positioning: nil, at: NSPoint(x: MixerColumn.textStart, y: bounds.minY), in: self)
+        return true
+    }
+}
+
+/// What a menu item made afresh each time its menu opens runs. The item holds it as its represented object, since an
+/// item's target is not kept.
+private final class MenuAction: NSObject {
+    private let handler: () -> Void
+
+    init(_ handler: @escaping () -> Void) {
+        self.handler = handler
+    }
+
+    @objc func run() { handler() }
+
+    static func item(_ title: String, state: NSControl.StateValue = .off, _ handler: @escaping () -> Void)
+        -> NSMenuItem
+    {
+        let action = MenuAction(handler)
+        let item = NSMenuItem(title: title, action: #selector(run), keyEquivalent: "")
+        item.target = action
+        item.representedObject = action
+        item.state = state
+        return item
+    }
+}
+
+/// An equalizer's choices for a menu, as its pop-up in the window: Off, Manual while the sliders were moved, Music's
+/// presets and the person's own with a check on the one in use, and Customize… for the sliders.
+enum EqualizerMenu {
+    static func items(
+        settings: EqualizerSettings, custom: [CustomEqualizerPreset], choose: @escaping (EqualizerSettings) -> Void,
+        customize: @escaping () -> Void
+    ) -> [NSMenuItem] {
+        let current = settings.isFlat ? nil : EqualizerNames.choice(of: settings, custom: custom)
+        var items: [NSMenuItem] = [
+            MenuAction.item(
+                String(localized: "Off", comment: "The equalizer, as in Music"), state: settings.isFlat ? .on : .off
+            ) { choose(.flat) }
+        ]
+        if !settings.isFlat, current == nil {
+            let manual = NSMenuItem(
+                title: String(
+                    localized: "Manual", comment: "An equalizer whose sliders were moved by hand, as in Music"),
+                action: nil, keyEquivalent: "")
+            manual.state = .on
+            items.append(manual)
+        }
+        items.append(.separator())
+        for preset in EqualizerNames.presets {
+            items.append(
+                MenuAction.item(EqualizerNames.name(of: preset.id), state: current == preset.id ? .on : .off) {
+                    choose(preset.settings)
+                })
+        }
+        if !custom.isEmpty {
+            items.append(.separator())
+            for preset in custom {
+                items.append(
+                    MenuAction.item(preset.name, state: current == preset.id ? .on : .off) { choose(preset.settings) })
+            }
+        }
+        items.append(.separator())
+        items.append(MenuAction.item(String(localized: "Customize…")) { customize() })
+        return items
+    }
+
+    /// Opens the window's sliders for this equalizer.
+    static func customize(_ target: String) {
+        AudioRuleStore.askToEdit(target)
+        WindowProcess.openVolumeMixer()
+    }
 }
 
 /// The light rounded fill under the pointer, in the system's colour for it.
@@ -618,10 +763,11 @@ private final class RowHighlight: NSView {
 }
 
 /// One app: its icon and name, how loud it plays against its own volume, a mute button, and a slider. A right click
-/// chooses its own output or puts it back as it plays by itself, as a context menu does anywhere in macOS.
+/// chooses its own output and equalizer or puts it back as it plays by itself, as a context menu does anywhere in macOS.
 final class MixerAppRow: NSView {
     let bundleID: String
     var onChange: ((String, (inout AppAudioRule) -> Void) -> Void)?
+    var onCustomize: ((String) -> Void)?
 
     private let icon = NSImageView()
     private let name = NSTextField.detailLabel(font: .systemFont(ofSize: 13))
@@ -739,6 +885,21 @@ final class MixerAppRow: NSView {
             item.image = NSImage(systemSymbolName: device.kind.symbolName, accessibilityDescription: nil)
             item.state = rule.outputUID == device.uid ? .on : .off
         }
+        menu.addItem(.separator())
+        let equalizer = NSMenuItem(title: String(localized: "Equalizer"), action: nil, keyEquivalent: "")
+        let submenu = NSMenu()
+        let bundleID = bundleID
+        for item in EqualizerMenu.items(
+            settings: rule.equalizer ?? .flat, custom: AudioRuleStore.customPresets(),
+            choose: { [weak self] settings in
+                self?.onChange?(bundleID) { $0.equalizer = settings.isFlat ? nil : settings }
+            },
+            customize: { [weak self] in self?.onCustomize?(bundleID) })
+        {
+            submenu.addItem(item)
+        }
+        equalizer.submenu = submenu
+        menu.addItem(equalizer)
         menu.addItem(.separator())
         let mute = menu.addItem(
             withTitle: rule.isMuted ? String(localized: "Unmute") : String(localized: "Mute"),

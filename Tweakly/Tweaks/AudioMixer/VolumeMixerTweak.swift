@@ -30,6 +30,8 @@ final class VolumeMixerTweak {
     private var pendingStop: DispatchWorkItem?
     private var hasGivenUp = false
     private var options = MixerOptions(showsInput: true, boosts: false)
+    /// Only while the person asked for a rule about devices.
+    private(set) var deviceRules: AudioDeviceRules?
 
     init(statusMenu: AppStatusMenu) {
         self.statusMenu = statusMenu
@@ -42,7 +44,11 @@ final class VolumeMixerTweak {
         systemListener.listen(
             to: AudioObjectID(kAudioObjectSystemObject),
             [kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices]
-        ) { [weak self] in self?.followOutput() }
+        ) { [weak self] in
+            self?.followOutput()
+            // An output with an equalizer may have come or gone.
+            self?.syncProcess()
+        }
         // After the sound server starts again the output may keep its number, but the listeners on it are gone.
         systemListener.listen(
             to: AudioObjectID(kAudioObjectSystemObject), [kAudioHardwarePropertyServiceRestarted]
@@ -60,7 +66,17 @@ final class VolumeMixerTweak {
         syncProcess()
     }
 
-    func update(showsInput: Bool, scrolls: Bool, boosts: Bool) {
+    func update(showsInput: Bool, scrolls: Bool, boosts: Bool, keepsMicrophone: Bool, ordersDevices: Bool) {
+        if keepsMicrophone || ordersDevices {
+            if let deviceRules {
+                deviceRules.update(keepsMicrophone: keepsMicrophone, ordersDevices: ordersDevices)
+            } else {
+                deviceRules = AudioDeviceRules(keepsMicrophone: keepsMicrophone, ordersDevices: ordersDevices)
+            }
+        } else {
+            deviceRules?.stop()
+            deviceRules = nil
+        }
         item.scrolls = scrolls
         options = MixerOptions(showsInput: showsInput, boosts: boosts)
         // The theme may be what changed.
@@ -80,6 +96,8 @@ final class VolumeMixerTweak {
         outputListener.stop()
         for token in eventTokens { notify_cancel(token) }
         eventTokens = []
+        deviceRules?.stop()
+        deviceRules = nil
         stopProcess()
     }
 
@@ -134,21 +152,30 @@ final class VolumeMixerTweak {
 
     // MARK: The process that plays
 
-    /// Runs while any app has a rule of its own. It decides by itself which of them to take and when.
+    /// Runs while any app has a rule of its own or a connected output an equalizer. It decides by itself what to take
+    /// and when.
     private func syncProcess() {
         guard !hasGivenUp else { return }
-        if !AudioRuleStore.load().rules.isEmpty {
+        if Self.needsProcess(AudioRuleStore.load()) {
             pendingStop?.cancel()
             pendingStop = nil
             startProcess()
         } else if process != nil, pendingStop == nil {
             let stop = DispatchWorkItem { [weak self] in
                 self?.pendingStop = nil
-                if AudioRuleStore.load().rules.isEmpty { self?.stopProcess() }
+                if !Self.needsProcess(AudioRuleStore.load()) { self?.stopProcess() }
             }
             pendingStop = stop
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.stopDelay, execute: stop)
         }
+    }
+
+    /// An equalizer kept for an output that is not connected asks for no process.
+    private static func needsProcess(_ book: AudioRuleBook) -> Bool {
+        if !book.rules.isEmpty { return true }
+        guard !book.outputs.isEmpty else { return false }
+        let connected = Set(AudioSystem.devices(input: false).map(\.uid))
+        return book.outputs.keys.contains(where: connected.contains)
     }
 
     private func startProcess() {
