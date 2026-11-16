@@ -138,7 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if volumeMixer == nil { volumeMixer = VolumeMixerTweak(statusMenu: statusMenu) }
         volumeMixer?.update(
             showsInput: settings.volumeMixerShowsInput, scrolls: settings.volumeMixerScrolls,
-            boosts: settings.volumeMixerBoosts)
+            boosts: settings.volumeMixerBoosts, keepsMicrophone: settings.volumeMixerKeepsMicrophone,
+            ordersDevices: settings.volumeMixerOrdersDevices)
     }
 
     private func updateLiveWallpaper() {

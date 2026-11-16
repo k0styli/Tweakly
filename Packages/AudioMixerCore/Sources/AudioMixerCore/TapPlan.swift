@@ -1,19 +1,37 @@
 import Foundation
 
-/// What the engine runs: for each output, the apps whose sound it takes, changes and plays there.
+/// What the engine runs: for each output, the apps whose sound it takes, changes and plays there, and with an
+/// equalizer on the output, everything else played on it too.
 public struct TapGroup: Equatable, Sendable {
     public var outputUID: String
     public var taps: [TapItem]
+    /// Everything else the output plays, taken for its equalizer; nil when it has none.
+    public var output: OutputTap?
 
-    public init(outputUID: String, taps: [TapItem]) {
+    public init(outputUID: String, taps: [TapItem], output: OutputTap? = nil) {
         self.outputUID = outputUID
         self.taps = taps
+        self.output = output
     }
 
-    /// The same apps from the same processes, in the same order, so a running group only has to take the new gains.
+    /// The same apps from the same processes, in the same order, and the output taken or not, leaving out the same
+    /// processes, so a running group only has to take the new gains and equalizers.
     public func hasSameSound(as other: TapGroup) -> Bool {
         outputUID == other.outputUID && taps.count == other.taps.count
             && zip(taps, other.taps).allSatisfy { $0.hasSameSound(as: $1) }
+            && output.map(\.excluded).map(Set.init) == other.output.map(\.excluded).map(Set.init)
+    }
+}
+
+/// An output's whole sound but for what is taken apart: this process, and the apps with taps of their own, which
+/// reach it through those.
+public struct OutputTap: Equatable, Sendable {
+    public var excluded: [UInt32]
+    public var equalizer: EqualizerSettings
+
+    public init(excluded: [UInt32], equalizer: EqualizerSettings) {
+        self.excluded = excluded
+        self.equalizer = equalizer
     }
 }
 
@@ -22,11 +40,13 @@ public struct TapItem: Equatable, Sendable {
     /// Every process playing for the app, which one tap takes together.
     public var objectIDs: [UInt32]
     public var gain: Float
+    public var equalizer: EqualizerSettings
 
-    public init(bundleID: String, objectIDs: [UInt32], gain: Float) {
+    public init(bundleID: String, objectIDs: [UInt32], gain: Float, equalizer: EqualizerSettings = .flat) {
         self.bundleID = bundleID
         self.objectIDs = objectIDs
         self.gain = gain
+        self.equalizer = equalizer
     }
 
     /// The same processes, so only the gain differs and nothing has to be built again.
@@ -50,11 +70,18 @@ public enum TapPlan {
     /// and only an app that chose nothing plays on the system's output. An app set to an output that is not connected
     /// plays where it would anyway.
     ///
-    /// - Parameter holding: Apps given back their own sound a moment ago, see `releaseHold`, which stay where they are
-    ///   at their own volume.
+    /// An output with an equalizer is taken whole while anything plays on it, or did a moment ago, leaving out this
+    /// process and the apps taken apart.
+    ///
+    /// - Parameters:
+    ///   - holding: Apps given back their own sound a moment ago, see `releaseHold`, which stay where they are at
+    ///     their own volume.
+    ///   - activeOutputs: Outputs something plays on, or did within `linger`.
+    ///   - ownObjectID: This process, whose own sound on an output must never be taken again.
     public static func groups(
         apps: [MixerApp], rules: AudioRuleBook, active: Set<String>, systemOutputUID: String?,
-        connectedOutputs: Set<String>, holding: Set<String> = []
+        connectedOutputs: Set<String>, holding: Set<String> = [], activeOutputs: Set<String> = [],
+        ownObjectID: UInt32? = nil
     ) -> [TapGroup] {
         var order: [String] = []
         var groups: [String: [TapItem]] = [:]
@@ -66,12 +93,35 @@ public enum TapPlan {
             let chosen = rule.outputUID.flatMap { connectedOutputs.contains($0) ? $0 : nil }
             guard let output = chosen ?? natural else { continue }
             // Its own volume where it plays anyway is the same sound: nothing to take.
-            if output == natural, abs(rule.volume - 1) < 0.005, !rule.isMuted, !isHeld { continue }
+            if output == natural, abs(rule.volume - 1) < 0.005, !rule.isMuted, !rule.hasEqualizer, !isHeld {
+                continue
+            }
             if groups[output] == nil { order.append(output) }
             groups[output, default: []].append(
-                TapItem(bundleID: app.id, objectIDs: app.objectIDs.sorted(), gain: rule.gain))
+                TapItem(
+                    bundleID: app.id, objectIDs: app.objectIDs.sorted(), gain: rule.gain,
+                    equalizer: rule.equalizer ?? .flat))
         }
-        return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? []) }
+        // The apps taken apart, wherever they play now, and this process are left out of every output's whole sound.
+        // Without knowing this process, no output is taken whole: it would take back its own sound, round and round.
+        let takenApart = Set(groups.values.flatMap { $0.flatMap(\.objectIDs) })
+        var outputs: [String: OutputTap] = [:]
+        guard let ownObjectID else { return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? []) } }
+        let excluded = takenApart.union([ownObjectID]).sorted()
+        for (uid, sound) in rules.outputs.sorted(by: { $0.key < $1.key })
+        where !sound.equalizer.isFlat && connectedOutputs.contains(uid) && activeOutputs.contains(uid) {
+            if groups[uid] == nil { order.append(uid) }
+            outputs[uid] = OutputTap(excluded: excluded, equalizer: sound.equalizer)
+        }
+        return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? [], output: outputs[$0]) }
+    }
+
+    /// The outputs something plays on, other than this process: a client playing, on the output it opened or, having
+    /// opened none, on the system's.
+    public static func playingOutputs(clients: [AudioClient], systemOutputUID: String?, ownPID: Int32) -> Set<String> {
+        Set(
+            clients.filter { $0.isPlaying && $0.pid != ownPID }
+                .compactMap { $0.outputUID ?? systemOutputUID })
     }
 
     /// When each app was last heard, brought up to date at a look: an app playing now, and one that was playing at the

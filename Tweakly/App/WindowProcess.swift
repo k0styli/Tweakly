@@ -192,6 +192,8 @@ enum ProcessEvents {
         case audioRulesChanged = "me.tweakly.Tweakly.audio-rules-changed"
         /// The process that plays apps' sound found it may or may not record it, see `AudioProcess`.
         case volumeMixerStateChanged = "me.tweakly.Tweakly.volume-mixer-state-changed"
+        /// The order of outputs and inputs changed, or a device was seen for the first time, see `AudioDeviceStore`.
+        case audioDevicesChanged = "me.tweakly.Tweakly.audio-devices-changed"
     }
 
     /// A plain notify name reaches every process on the Mac: quitting would close other users' copies and

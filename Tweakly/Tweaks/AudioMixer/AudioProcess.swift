@@ -22,12 +22,18 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private var clientListener = AudioListener()
     private var listenedClients: Set<AudioObjectID> = []
     private var rules = AudioRuleBook()
-    /// Core Audio's clients as apps, and the outputs, read again only when they change: a slider moved in the popover
-    /// changes the rules many times a second, and that needs no new look at every process playing sound.
-    private var sound: (apps: [MixerApp], systemOutput: String?, connected: Set<String>)?
+    /// Core Audio's clients, as apps too, and the outputs, read again only when they change: a slider moved in the
+    /// popover changes the rules many times a second, and that needs no new look at every process playing sound.
+    private var sound: (clients: [AudioClient], apps: [MixerApp], systemOutput: String?, connected: Set<String>)?
     /// When each app with a rule was last heard, for `TapPlan.linger`, and which of them played at the last look.
     private var lastPlayed: [String: Date] = [:]
     private var wasPlaying: Set<String> = []
+    /// The same for each output with an equalizer, by UID.
+    private var outputLastPlayed: [String: Date] = [:]
+    private var outputsWerePlaying: Set<String> = []
+    /// This process as the sound server knows it, left out of every output it takes whole: it exists from the first
+    /// question to the server, before this process plays anything.
+    private var ownObjectID: AudioObjectID?
     /// While the system refuses the recording, a moved slider tries again, at most this often: right after someone
     /// allows it the slider should work, and while refused each try silences the app for a moment.
     private static let refusedRetryInterval: TimeInterval = 5
@@ -89,15 +95,16 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private func reload() {
         let isFirst = sound == nil
         let ruledBefore = Set(rules.rules.keys)
+        let outputsBefore = Set(rules.outputs.keys)
         rules = AudioRuleStore.load()
-        if rules.rules.isEmpty, isFirst {
+        if rules.isEmpty, isFirst {
             NSApp.terminate(nil)
             return
         }
         // An app given its first rule, or one given back, is a moment to try again what could not run, perhaps right
         // after someone allowed the recording; a slider moving is not. Whether the new app plays is looked at afresh,
         // as it was not listened to.
-        let ruledChanged = Set(rules.rules.keys) != ruledBefore
+        let ruledChanged = Set(rules.rules.keys) != ruledBefore || Set(rules.outputs.keys) != outputsBefore
         let now = Date.now
         for id in ruledBefore.subtracting(rules.rules.keys) { released[id] = now }
         for id in rules.rules.keys { released[id] = nil }
@@ -122,6 +129,7 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         clientListener.stop()
         clientListener = AudioListener()
         listenedClients = []
+        ownObjectID = nil
         evaluate(readingClients: true)
     }
 
@@ -130,8 +138,10 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private func evaluate(readingClients: Bool) {
         if readingClients || sound == nil {
             let before = sound?.connected
+            let clients = AudioSystem.clients()
             sound = (
-                AudioAppGrouping.apps(clients: AudioSystem.clients(), owner: AudioSystem.owner(of:)),
+                clients,
+                AudioAppGrouping.apps(clients: clients, owner: AudioSystem.owner(of:)),
                 AudioSystem.defaultDevice(input: false).flatMap(AudioSystem.uid(of:)),
                 // Our own private devices come and go with every group built, and are no output to play on.
                 Set(AudioSystem.devices(input: false).map(\.uid).filter { !$0.hasPrefix(TapEngine.deviceUIDPrefix) })
@@ -141,7 +151,7 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         }
         guard let sound else { return }
         let apps = sound.apps
-        listenToPlaying(of: apps)
+        listenToPlaying(of: apps, clients: sound.clients)
         let now = Date.now
         // Only apps with a rule are ever taken, so only their silence is worth a wakeup when it lasts.
         let playing = Set(apps.filter { $0.isPlaying && !rules.rule(for: $0.id).isStandard }.map(\.id))
@@ -156,12 +166,28 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         let active = TapPlan.active(lastPlayed: lastPlayed, playing: playing, now: now)
         lastPlayed = lastPlayed.filter { active.contains($0.key) }
         released = released.filter { now.timeIntervalSince($0.value) < TapPlan.releaseHold }
+        // An output with an equalizer is taken while anything plays on it, and a while after, as an app is.
+        let outputsPlaying =
+            rules.outputs.isEmpty
+            ? []
+            : TapPlan.playingOutputs(
+                clients: sound.clients, systemOutputUID: sound.systemOutput, ownPID: getpid()
+            ).intersection(rules.outputs.keys)
+        outputLastPlayed = TapPlan.heard(
+            lastPlayed: outputLastPlayed, wasPlaying: outputsWerePlaying, playing: outputsPlaying, now: now)
+        outputsWerePlaying = outputsPlaying
+        let activeOutputs = TapPlan.active(lastPlayed: outputLastPlayed, playing: outputsPlaying, now: now)
+        outputLastPlayed = outputLastPlayed.filter { activeOutputs.contains($0.key) }
+        if ownObjectID == nil, !rules.outputs.isEmpty {
+            ownObjectID = (try? AudioHardwareSystem.shared.process(for: getpid()))?.id
+        }
         let groups = TapPlan.groups(
             apps: apps, rules: rules, active: active, systemOutputUID: sound.systemOutput,
-            connectedOutputs: sound.connected, holding: Set(released.keys))
+            connectedOutputs: sound.connected, holding: Set(released.keys), activeOutputs: activeOutputs,
+            ownObjectID: ownObjectID)
         engine.apply(groups)
         report()
-        scheduleLinger(playing: playing, now: now)
+        scheduleLinger(playing: playing.union(outputsPlaying), now: now)
         scheduleReleaseEnd(now: now)
     }
 
@@ -176,9 +202,13 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// Whether each app with a rule plays is a property of its processes, heard as it changes, not asked for.
-    private func listenToPlaying(of apps: [MixerApp]) {
-        let ruled = Set(apps.filter { !rules.rule(for: $0.id).isStandard }.flatMap(\.objectIDs))
+    /// Whether each app with a rule plays is a property of its processes, heard as it changes, not asked for. With an
+    /// equalizer on an output, whether anything plays there is the same property of every process.
+    private func listenToPlaying(of apps: [MixerApp], clients: [AudioClient]) {
+        let ruled =
+            rules.outputs.isEmpty
+            ? Set(apps.filter { !rules.rule(for: $0.id).isStandard }.flatMap(\.objectIDs))
+            : Set(clients.map(\.objectID))
         guard ruled != listenedClients else { return }
         clientListener.stop()
         clientListener = AudioListener()
@@ -198,7 +228,7 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleLinger(playing: Set<String>, now: Date) {
         linger?.cancel()
         linger = nil
-        let quiet = lastPlayed.filter { !playing.contains($0.key) }.values
+        let quiet = lastPlayed.merging(outputLastPlayed) { max($0, $1) }.filter { !playing.contains($0.key) }.values
         guard let soonest = quiet.min() else { return }
         let delay = max(1, TapPlan.linger - now.timeIntervalSince(soonest) + 0.5)
         let work = DispatchWorkItem { [weak self] in self?.evaluate(readingClients: true) }
@@ -245,6 +275,9 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
                     let object: [String: Any] = [
                         "groups": self.engine.state, "permitted": self.engine.isPermitted,
                         "rules": self.rules.rules.keys.sorted(), "active": self.lastPlayed.keys.sorted(),
+                        "outputs": self.rules.outputs.keys.sorted(),
+                        "activeOutputs": self.outputLastPlayed.keys.sorted(),
+                        "ownObjectID": self.ownObjectID ?? 0,
                     ]
                     let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data()
                     try? data.write(to: URL(fileURLWithPath: path))

@@ -2,10 +2,10 @@ import AudioMixerCore
 import CoreAudio
 import os
 
-/// Runs what `TapPlan` asks for: for each output, one private aggregate device holding that output and a process tap
-/// for each app routed there. The taps mute the apps' own sound only while they are read, so if this process stops for
-/// any reason, every app sounds as before. Only public API: process taps since macOS 14.2, and the Swift classes for
-/// them since macOS 15.
+/// Runs what `TapPlan` asks for: for each output, one private aggregate device holding that output, a process tap for
+/// each app routed there, and with an equalizer on the output, a tap of everything else it plays. The taps mute the
+/// sound they take only while they are read, so if this process stops for any reason, everything sounds as before.
+/// Only public API: process taps since macOS 14.2, and the Swift classes for them since macOS 15.
 final class TapEngine {
     private static let log = Logger(subsystem: "me.tweakly.Tweakly", category: "volume-mixer")
 
@@ -97,6 +97,9 @@ private final class TapGroupRunner {
     private var aggregate: AudioHardwareAggregateDevice?
     private var procID: AudioDeviceIOProcID?
     private let mixer: TapMixer
+    /// The output's rate can change while it runs, a Bluetooth headset going over to a call say, and every filter is
+    /// drawn for a rate.
+    private let rateListener = AudioListener()
 
     init(_ group: TapGroup) throws {
         self.group = group
@@ -104,16 +107,36 @@ private final class TapGroupRunner {
         guard let output = AudioSystem.device(withUID: group.outputUID) else {
             throw AudioHardwareError(kAudioHardwareBadDeviceError)
         }
+        // The output's whole sound, when taken, is the last tap, at its own level.
+        let gains = group.taps.map(\.gain) + (group.output == nil ? [] : [1])
+        let rate: Float64 = AudioSystem.value(output, kAudioDevicePropertyNominalSampleRate) ?? 48_000
         #if TWEAKLY_AUTOMATION
-            mixer = TapMixer(gains: group.taps.map(\.gain), meters: true)
+            mixer = TapMixer(gains: gains, sampleRate: rate, meters: true)
         #else
-            mixer = TapMixer(gains: group.taps.map(\.gain))
+            mixer = TapMixer(gains: gains, sampleRate: rate)
         #endif
+        applyEqualizers(of: group, after: nil)
         do {
             for item in group.taps {
                 let description = CATapDescription(stereoMixdownOfProcesses: item.objectIDs)
                 description.uuid = UUID()
                 description.name = "Tweakly \(item.bundleID)"
+                description.isPrivate = true
+                description.muteBehavior = .mutedWhenTapped
+                guard let tap = try system.makeProcessTap(description: description) else {
+                    throw AudioHardwareError(kAudioHardwareUnspecifiedError)
+                }
+                taps.append(tap)
+            }
+            if let whole = group.output {
+                // Everything that plays on the output but this process and the apps taken above, for its equalizer.
+                let description = CATapDescription(
+                    excludingProcesses: whole.excluded, deviceUID: group.outputUID, stream: 0)
+                // As one interleaved stereo stream, as the apps' taps are, whatever channels the output's own has.
+                description.isMixdown = true
+                description.isMono = false
+                description.uuid = UUID()
+                description.name = "Tweakly output"
                 description.isPrivate = true
                 description.muteBehavior = .mutedWhenTapped
                 guard let tap = try system.makeProcessTap(description: description) else {
@@ -137,6 +160,7 @@ private final class TapGroupRunner {
                 throw AudioHardwareError(kAudioHardwareUnspecifiedError)
             }
             self.aggregate = aggregate
+            followRate(of: aggregate.id)
             var created: AudioDeviceIOProcID?
             let status = AudioDeviceCreateIOProcIDWithBlock(&created, aggregate.id, nil, mixer.ioBlock())
             guard status == noErr, let created else { throw AudioHardwareError(status) }
@@ -147,6 +171,31 @@ private final class TapGroupRunner {
         } catch {
             stop()
             throw error
+        }
+    }
+
+    /// The aggregate runs at its output's rate.
+    private func followRate(of aggregate: AudioObjectID) {
+        let read = { [mixer] in
+            if let rate: Float64 = AudioSystem.value(aggregate, kAudioDevicePropertyNominalSampleRate), rate > 0 {
+                mixer.setSampleRate(rate)
+            }
+        }
+        read()
+        rateListener.listen(to: aggregate, [kAudioDevicePropertyNominalSampleRate]) { read() }
+    }
+
+    /// Each app's equalizer and the output's, solved again only where they changed: a slider sends a new rule many
+    /// times a second, most of them for the volume.
+    private func applyEqualizers(of newGroup: TapGroup, after old: TapGroup?) {
+        for (index, item) in newGroup.taps.enumerated() where index < mixer.equalizers.count {
+            if old.map({ index < $0.taps.count && $0.taps[index].equalizer == item.equalizer }) != true {
+                mixer.equalizers[index].set(item.equalizer)
+            }
+        }
+        let equalizer = newGroup.output?.equalizer ?? .flat
+        if old.map({ ($0.output?.equalizer ?? .flat) == equalizer }) != true {
+            mixer.outputEqualizer.set(equalizer)
         }
     }
 
@@ -193,11 +242,14 @@ private final class TapGroupRunner {
     }
 
     func update(_ newGroup: TapGroup) {
+        let old = group
         group = newGroup
         for (index, item) in newGroup.taps.enumerated() { mixer.gains.set(index, item.gain) }
+        applyEqualizers(of: newGroup, after: old)
     }
 
     func stop() {
+        rateListener.stop()
         let system = AudioHardwareSystem.shared
         if let aggregate, let procID {
             try? aggregate.stop(IOProcID: procID)
@@ -215,6 +267,11 @@ private final class TapGroupRunner {
             [
                 "output": group.outputUID, "apps": group.taps.map(\.bundleID), "gains": group.taps.map(\.gain),
                 "inputPeak": mixer.inputPeak, "outputPeak": mixer.outputPeak,
+                "equalizers": group.taps.map { $0.equalizer.presetID ?? ($0.equalizer.isFlat ? "flat" : "manual") },
+                "outputTaken": group.output != nil, "excluded": group.output?.excluded ?? [],
+                "outputEqualizer": group.output.map { $0.equalizer.presetID ?? "manual" } ?? "",
+                "sampleRate": mixer.outputEqualizer.sampleRate,
+                "outputEqualizing": !mixer.outputEqualizer.isBypassed,
             ]
         }
     #endif

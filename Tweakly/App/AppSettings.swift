@@ -154,6 +154,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
         static let volumeMixerShowsInput = "volumeMixerShowsInput"
         static let volumeMixerScrolls = "volumeMixerScrolls"
         static let volumeMixerBoosts = "volumeMixerBoosts"
+        static let volumeMixerKeepsMicrophone = "volumeMixerKeepsMicrophone"
+        static let volumeMixerOrdersDevices = "volumeMixerOrdersDevices"
         static let taskManager = "taskManagerEnabled"
         static let taskManagerShortcut = "taskManagerShortcut"
         static let liveWallpaper = "liveWallpaperEnabled"
@@ -342,6 +344,16 @@ enum AppTheme: String, CaseIterable, Identifiable {
         didSet { saved { $0.set(volumeMixerBoosts, forKey: Key.volumeMixerBoosts) } }
     }
 
+    /// A Bluetooth headset's microphone is never made the input as the headset comes, see `AudioDeviceRules`.
+    var volumeMixerKeepsMicrophone: Bool {
+        didSet { saved { $0.set(volumeMixerKeepsMicrophone, forKey: Key.volumeMixerKeepsMicrophone) } }
+    }
+
+    /// Outputs and inputs are chosen in the person's order as devices come and go, see `AudioDeviceRules`.
+    var volumeMixerOrdersDevices: Bool {
+        didSet { saved { $0.set(volumeMixerOrdersDevices, forKey: Key.volumeMixerOrdersDevices) } }
+    }
+
     /// Whether a keyboard shortcut opens the task manager from any app. On from the start, as Windows has it: macOS gives
     /// the shortcut no meaning of its own, and holding it costs nothing.
     var taskManagerEnabled: Bool {
@@ -503,6 +515,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
         volumeMixerShowsInput = defaults.object(forKey: Key.volumeMixerShowsInput) as? Bool ?? true
         volumeMixerScrolls = defaults.object(forKey: Key.volumeMixerScrolls) as? Bool ?? true
         volumeMixerBoosts = defaults.bool(forKey: Key.volumeMixerBoosts)
+        volumeMixerKeepsMicrophone = defaults.bool(forKey: Key.volumeMixerKeepsMicrophone)
+        volumeMixerOrdersDevices = defaults.bool(forKey: Key.volumeMixerOrdersDevices)
         taskManagerEnabled = defaults.object(forKey: Key.taskManager) as? Bool ?? true
         taskManagerShortcut = Self.readShortcut(defaults)
         liveWallpaperEnabled = defaults.bool(forKey: Key.liveWallpaper)
@@ -658,6 +672,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
         volumeMixerShowsInput = defaults.object(forKey: Key.volumeMixerShowsInput) as? Bool ?? true
         volumeMixerScrolls = defaults.object(forKey: Key.volumeMixerScrolls) as? Bool ?? true
         volumeMixerBoosts = defaults.bool(forKey: Key.volumeMixerBoosts)
+        volumeMixerKeepsMicrophone = defaults.bool(forKey: Key.volumeMixerKeepsMicrophone)
+        volumeMixerOrdersDevices = defaults.bool(forKey: Key.volumeMixerOrdersDevices)
         taskManagerEnabled = defaults.object(forKey: Key.taskManager) as? Bool ?? true
         taskManagerShortcut = Self.readShortcut(defaults)
         reloadLiveWallpaper()

@@ -30,34 +30,58 @@ public final class GainBoard: @unchecked Sendable {
     }
 }
 
-/// What the audio thread does each cycle: adds every tap's stereo sound to the output's first two channels, each at its
-/// gain moved smoothly from the last cycle (`GainRamp`), then keeps a sum that can pass full scale from clipping
-/// (`SoftLimiter`). Nothing here allocates, locks or waits. It lives here, apart from Core Audio's devices, so that
-/// tests can run it on buffers of every shape an output may have.
+/// What the audio thread does each cycle: adds every tap's stereo sound to the output's first two channels, each through
+/// its app's equalizer and at its gain moved smoothly from the last cycle (`GainRamp`), runs the output's own equalizer
+/// over the sum, then keeps a sum that can pass full scale from clipping (`SoftLimiter`). Nothing here allocates, locks
+/// or waits. It lives here, apart from Core Audio's devices, so that tests can run it on buffers of every shape an
+/// output may have.
 ///
 /// The taps' streams are the last of the aggregate device's inputs, after the output device's own, such as a headset's
 /// microphone, whose number can change while it runs.
 ///
-/// `@unchecked Sendable`: `ramps` and the peaks are touched only by the audio thread, which calls `render` one cycle at
-/// a time; the main thread reads the peaks for tests alone.
+/// `@unchecked Sendable`: `ramps`, the scratch buffers and the peaks are touched only by the audio thread, which calls
+/// `render` one cycle at a time; the main thread reads the peaks for tests alone.
 public final class TapMixer: @unchecked Sendable {
+    /// A tap's sound goes through its equalizer this many frames at a time, in buffers made once.
+    static let chunk = 1024
+
     public let gains: GainBoard
+    /// One for each tap, flat until its app has one.
+    public let equalizers: [EqualizerProcessor]
+    /// The output's own, over everything played on it.
+    public let outputEqualizer: EqualizerProcessor
     private let ramps: UnsafeMutablePointer<GainRamp>
+    private let scratchLeft: UnsafeMutablePointer<Float>
+    private let scratchRight: UnsafeMutablePointer<Float>
     /// Whether to keep the peaks, which only tests read.
     private let meters: Bool
     public private(set) var inputPeak: Float = 0
     public private(set) var outputPeak: Float = 0
 
-    public init(gains: [Float], meters: Bool = false) {
+    public init(gains: [Float], sampleRate: Double = 48_000, meters: Bool = false) {
         self.gains = GainBoard(gains)
         self.meters = meters
+        equalizers = gains.map { _ in EqualizerProcessor(sampleRate: sampleRate) }
+        outputEqualizer = EqualizerProcessor(sampleRate: sampleRate)
         ramps = .allocate(capacity: max(gains.count, 1))
         for (index, gain) in gains.enumerated() { (ramps + index).initialize(to: GainRamp(gain)) }
+        scratchLeft = .allocate(capacity: Self.chunk)
+        scratchLeft.initialize(repeating: 0, count: Self.chunk)
+        scratchRight = .allocate(capacity: Self.chunk)
+        scratchRight.initialize(repeating: 0, count: Self.chunk)
     }
 
     deinit {
         ramps.deinitialize(count: gains.count)
         ramps.deallocate()
+        scratchLeft.deallocate()
+        scratchRight.deallocate()
+    }
+
+    /// The output's rate, which every filter is drawn for. Main thread.
+    public func setSampleRate(_ rate: Double) {
+        equalizers.forEach { $0.setSampleRate(rate) }
+        outputEqualizer.setSampleRate(rate)
     }
 
     /// The block the audio thread calls, made here so that it belongs to no actor: one formed on the main actor would
@@ -91,8 +115,10 @@ public final class TapMixer: @unchecked Sendable {
         let firstTap = inputs.count - gains.count
         var peakIn: Float = 0
         // The loudest the sum can be against its sources: at most one app at most at full volume needs no limiter,
-        // which would only bend the peaks of a loudly mastered song.
+        // which would only bend the peaks of a loudly mastered song. An equalizer may raise anything, so with one at
+        // work the limiter always watches.
         var totalGain: Float = 0
+        var isEqualizing = false
         for tap in 0..<gains.count {
             let index = firstTap + tap
             guard index >= 0, index < inputs.count, let data = inputs[index].mData else { continue }
@@ -102,20 +128,41 @@ public final class TapMixer: @unchecked Sendable {
             let target = gains.get(tap)
             totalGain += max(ramps[tap].current, target)
             let (first, step) = ramps[tap].begin(towards: target, frames: count)
-            for frame in 0..<count {
-                let gain = first + step * Float(frame)
-                let l = source[frame * channels]
-                let r = channels > 1 ? source[frame * channels + 1] : l
-                if meters { peakIn = max(peakIn, abs(l), abs(r)) }
-                if let right {
-                    left.data[frame * left.stride] += l * gain
-                    right.data[frame * right.stride] += r * gain
-                } else {
-                    left.data[frame * left.stride] += (l + r) * 0.5 * gain
+            let equalizer = equalizers[tap]
+            var done = 0
+            while done < count {
+                let length = min(Self.chunk, count - done)
+                for frame in 0..<length {
+                    let l = source[(done + frame) * channels]
+                    scratchLeft[frame] = l
+                    scratchRight[frame] = channels > 1 ? source[(done + frame) * channels + 1] : l
                 }
+                if meters {
+                    for frame in 0..<length { peakIn = max(peakIn, abs(scratchLeft[frame]), abs(scratchRight[frame])) }
+                }
+                equalizer.process(
+                    left: scratchLeft, leftStride: 1, right: scratchRight, rightStride: 1, frames: length)
+                if !equalizer.isBypassed { isEqualizing = true }
+                for frame in 0..<length {
+                    let gain = first + step * Float(done + frame)
+                    let l = scratchLeft[frame]
+                    let r = scratchRight[frame]
+                    let at = done + frame
+                    if let right {
+                        left.data[at * left.stride] += l * gain
+                        right.data[at * right.stride] += r * gain
+                    } else {
+                        left.data[at * left.stride] += (l + r) * 0.5 * gain
+                    }
+                }
+                done += length
             }
         }
-        if totalGain > 1 {
+        outputEqualizer.process(
+            left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
+            frames: frames)
+        if !outputEqualizer.isBypassed { isEqualizing = true }
+        if totalGain > 1 || isEqualizing {
             for frame in 0..<frames {
                 left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride])
                 if let right { right.data[frame * right.stride] = SoftLimiter.limit(right.data[frame * right.stride]) }

@@ -128,6 +128,56 @@
             case "mixer-reset":
                 guard stats != nil else { return }
                 AudioRuleStore.save(AudioRuleBook())
+            case "mixer-eq":
+                // The agent alone: output <UID or default> <preset or flat> [name], or app <bundle ID> <preset or flat>.
+                guard stats != nil else { return }
+                let parts = Array(words.dropFirst())
+                guard parts.count >= 3 else { return }
+                let settings =
+                    parts[2] == "flat"
+                    ? EqualizerSettings.flat
+                    : EqualizerNames.settings(for: parts[2], custom: AudioRuleStore.customPresets()) ?? .flat
+                if parts[0] == "output" {
+                    let uid =
+                        parts[1] == "default"
+                        ? AudioSystem.defaultDevice(input: false).flatMap(AudioSystem.uid(of:)) : parts[1]
+                    guard let uid else { return }
+                    // A made-up output may be named after the preset: output demo.airpods rock AirPods Pro.
+                    let given = parts.count > 3 ? parts[3...].joined(separator: " ") : nil
+                    let name = given ?? AudioSystem.devices(input: false).first { $0.uid == uid }?.name ?? uid
+                    AudioRuleStore.setEqualizer(settings, forOutput: uid, name: name)
+                } else if parts[0] == "app" {
+                    AudioRuleStore.update(parts[1]) { $0.equalizer = settings.isFlat ? nil : settings }
+                }
+            case "mixer-eq-preset":
+                // The agent alone: saves the default output's equalizer as a preset of the person's, under a name.
+                guard stats != nil, let uid = AudioSystem.defaultDevice(input: false).flatMap(AudioSystem.uid(of:))
+                else { return }
+                let name = words.dropFirst().joined(separator: " ")
+                var presets = AudioRuleStore.customPresets()
+                presets.append(CustomEqualizerPreset(name: name, from: AudioRuleStore.load().equalizer(forOutput: uid)))
+                AudioRuleStore.saveCustomPresets(presets)
+            case "mixer-edit-eq":
+                // The agent alone, as Customize… in the popover: output:<UID>, output:default or app:<bundle ID>.
+                guard stats != nil else { return }
+                var target = argument
+                if target == "output:default",
+                    let uid = AudioSystem.defaultDevice(input: false).flatMap(AudioSystem.uid(of:))
+                {
+                    target = "output:" + uid
+                }
+                EqualizerMenu.customize(target)
+            case "mixer-devices":
+                // The agent alone: what the device rules see and did.
+                guard stats != nil else { return }
+                let rules = volumeMixer?()?.deviceRules?.automationDescription ?? ["off": true]
+                let order = AudioDeviceStore.load()
+                var object = rules
+                object["order"] = [
+                    "outputs": order.outputs.map(\.uid), "inputs": order.inputs.map(\.uid),
+                ]
+                let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data()
+                try? data.write(to: URL(fileURLWithPath: argument))
             case "mixer-state":
                 // The agent alone: what the popover would show, without opening it.
                 guard stats != nil else { return }

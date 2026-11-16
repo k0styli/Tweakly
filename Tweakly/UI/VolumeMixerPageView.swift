@@ -4,8 +4,9 @@ import CoreAudio
 import SwiftUI
 import notify
 
-/// The volume mixer's page: the switch, each app given a volume or output of its own, changed right here as in the
-/// popover, and what the popover offers. Laid out as System Settings lays out one app's settings: a group per app.
+/// The volume mixer's page: the switch, each app given a volume, output or equalizer of its own, changed right here as in
+/// the popover, each output's equalizer, how devices are chosen as they come and go, and what the popover offers. Laid
+/// out as System Settings lays out one app's settings: a group per app.
 struct VolumeMixerPageView: View {
     @Bindable var settings: AppSettings
     @Environment(SystemAccess.self) private var access
@@ -19,13 +20,18 @@ struct VolumeMixerPageView: View {
     @State private var tokens: [Int32] = []
     /// Outputs come and go, headphones above all, while the page is open.
     @State private var deviceListener: AudioListener?
+    @State private var custom = AudioRuleStore.customPresets()
+    @State private var editing: EqualizerTarget?
+    @State private var isOrdering = false
+    @State private var isListingPresets = false
 
     var body: some View {
         Form {
             Section {
                 MainSwitch(
                     symbol: MainPage.volumeMixer.symbol, title: Text("Volume Mixer"),
-                    detail: Text("In the menu bar: the volume, the output, and a volume and output for each app."),
+                    detail: Text(
+                        "In the menu bar: the volume, the output, and a volume, output and equalizer for each app."),
                     isOn: $settings.volumeMixerEnabled)
             }
             if settings.volumeMixerEnabled, hasStopped {
@@ -52,7 +58,7 @@ struct VolumeMixerPageView: View {
             }
             if shownApps.isEmpty {
                 Section {
-                    Text("Apps you give a volume or output of their own in the popover appear here.")
+                    Text("Apps you give a volume, output or equalizer of their own in the popover appear here.")
                         .foregroundStyle(.secondary)
                 } header: {
                     appsTitle
@@ -61,8 +67,9 @@ struct VolumeMixerPageView: View {
                 ForEach(Array(sortedApps.enumerated()), id: \.element) { index, bundleID in
                     AppRuleSection(
                         bundleID: bundleID, rule: rules.rule(for: bundleID), outputs: outputs,
-                        highest: AudioRuleBook.highestVolume(boosting: settings.volumeMixerBoosts),
-                        change: { change(bundleID, $0) }
+                        highest: AudioRuleBook.highestVolume(boosting: settings.volumeMixerBoosts), custom: custom,
+                        change: { change(bundleID, $0) },
+                        edit: { editing = .app(bundleID: bundleID, name: AppIdentity.of(bundleID).name) }
                     ) {
                         if index == 0 { appsTitle }
                     }
@@ -70,6 +77,10 @@ struct VolumeMixerPageView: View {
                     .disabled(!settings.volumeMixerEnabled)
                 }
             }
+            equalizerSection
+                .disabled(!settings.volumeMixerEnabled)
+            devicesSection
+                .disabled(!settings.volumeMixerEnabled)
             Section {
                 Toggle(isOn: $settings.volumeMixerShowsInput) {
                     Text("Show the Microphone")
@@ -90,7 +101,8 @@ struct VolumeMixerPageView: View {
             .sectionActions {
                 if !rules.rules.isEmpty {
                     Button("Reset All Apps") {
-                        AudioRuleStore.save(AudioRuleBook())
+                        // The apps only: the outputs' equalizers are not theirs.
+                        AudioRuleStore.save(AudioRuleBook(outputs: AudioRuleStore.load().outputs))
                         shownApps = []
                         reload()
                     }
@@ -99,12 +111,24 @@ struct VolumeMixerPageView: View {
             }
         }
         .formStyle(.grouped)
+        .sheet(item: $editing) { target in
+            EqualizerEditor(target: target)
+        }
+        .sheet(isPresented: $isOrdering) {
+            DeviceOrderSheet()
+        }
+        .sheet(isPresented: $isListingPresets) {
+            EqualizerPresetList()
+        }
         .onAppear {
             reload()
             outputs = AudioSystem.devices(input: false)
+            openRequestedEqualizer()
             tokens = [
                 ProcessEvents.observe(.audioRulesChanged) { reload() },
                 ProcessEvents.observe(.volumeMixerStateChanged) { reload() },
+                // The popover's Customize… brings the window here with the equalizer it was asked for.
+                ProcessEvents.observe(.showVolumeMixer) { openRequestedEqualizer() },
             ]
             let listener = AudioListener()
             listener.listen(to: AudioObjectID(kAudioObjectSystemObject), [kAudioHardwarePropertyDevices]) {
@@ -117,6 +141,98 @@ struct VolumeMixerPageView: View {
             tokens = []
             deviceListener?.stop()
             deviceListener = nil
+        }
+    }
+
+    // MARK: Equalizer
+
+    /// Every output connected now, and any other with an equalizer kept for when it comes back.
+    private var equalizerOutputs: [(uid: String, name: String, kind: AudioDeviceKind, isConnected: Bool)] {
+        let connected = outputs.map { ($0.uid, $0.name, $0.kind, true) }
+        let remembered = rules.outputs
+            .filter { uid, _ in !outputs.contains { $0.uid == uid } }
+            .sorted { $0.value.name.localizedStandardCompare($1.value.name) == .orderedAscending }
+            .map { ($0.key, $0.value.name, $0.value.deviceKind ?? .other, false) }
+        return connected + remembered
+    }
+
+    private var equalizerSection: some View {
+        Section {
+            ForEach(equalizerOutputs, id: \.uid) { output in
+                let target = EqualizerTarget.output(uid: output.uid, name: output.name)
+                LabeledContent {
+                    EqualizerPicker(
+                        title: Text(verbatim: output.name), settings: rules.equalizer(forOutput: output.uid),
+                        custom: custom, choose: { target.save($0) }, customize: { editing = target }
+                    )
+                    .labelsHidden()
+                    .fixedSize()
+                } label: {
+                    Label {
+                        Text(verbatim: output.name)
+                        if !output.isConnected {
+                            Text("Not Connected")
+                        }
+                    } icon: {
+                        Image(systemName: output.kind.symbolName)
+                            .foregroundStyle(output.isConnected ? .secondary : .tertiary)
+                    }
+                }
+            }
+        } header: {
+            SectionTitle(
+                title: Text("Equalizer"),
+                detail: Text(
+                    "For everything an output plays, with Music’s presets. An app’s own equalizer is in its group above."
+                ))
+        }
+        .sectionActions {
+            if !custom.isEmpty {
+                Button("Edit List…") { isListingPresets = true }
+            }
+        }
+    }
+
+    // MARK: Devices
+
+    private var devicesSection: some View {
+        Section {
+            Toggle(isOn: $settings.volumeMixerKeepsMicrophone) {
+                Text("Keep the Microphone When Headphones Connect")
+                Text(
+                    "AirPods and other Bluetooth headphones don’t take over the microphone, so their sound stays at full quality instead of dropping to call quality. Their microphone can still be chosen by hand."
+                )
+            }
+            Toggle(isOn: $settings.volumeMixerOrdersDevices) {
+                Text("Choose Devices in Order")
+                Text(
+                    "As devices connect and disconnect, the first connected output and input in your order are chosen. A device chosen by hand stays until the next one connects."
+                )
+            }
+        } header: {
+            SectionTitle(
+                title: Text("Devices"),
+                detail: Text("What the Mac uses as headphones, speakers and microphones come and go."))
+        }
+        .sectionActions {
+            if settings.volumeMixerOrdersDevices {
+                Button("Device Order…") { isOrdering = true }
+            }
+        }
+    }
+
+    /// The equalizer the popover asked to customize, once.
+    private func openRequestedEqualizer() {
+        guard let request = AudioRuleStore.takeEditorRequest() else { return }
+        if request.hasPrefix("output:") {
+            let uid = String(request.dropFirst("output:".count))
+            let name =
+                outputs.first { $0.uid == uid }?.name ?? AudioSystem.devices(input: false).first { $0.uid == uid }?.name
+                ?? rules.outputs[uid]?.name ?? uid
+            editing = .output(uid: uid, name: name)
+        } else if request.hasPrefix("app:") {
+            let bundleID = String(request.dropFirst("app:".count))
+            editing = .app(bundleID: bundleID, name: AppIdentity.of(bundleID).name)
         }
     }
 
@@ -148,17 +264,21 @@ struct VolumeMixerPageView: View {
         let added = stored.rules.keys.filter { !shownApps.contains($0) }
         if !added.isEmpty { shownApps += added }
         hasStopped = AudioRuleStore.hasStopped
+        let presets = AudioRuleStore.customPresets()
+        if presets != custom { custom = presets }
     }
 }
 
 /// One app's group: its icon and name with a way back to how it plays by itself, then its volume against its own, its
-/// sound on or off, and the output it plays on.
+/// sound on or off, the output it plays on, and its equalizer.
 private struct AppRuleSection<Header: View>: View {
     let bundleID: String
     let rule: AppAudioRule
     let outputs: [AudioDevice]
     let highest: Double
+    let custom: [CustomEqualizerPreset]
     let change: ((inout AppAudioRule) -> Void) -> Void
+    let edit: () -> Void
     @ViewBuilder let header: () -> Header
 
     var body: some View {
@@ -208,6 +328,9 @@ private struct AppRuleSection<Header: View>: View {
                     Text("Another Output").tag(Optional(uid))
                 }
             }
+            EqualizerPicker(
+                title: Text("Equalizer"), settings: rule.equalizer ?? .flat, custom: custom,
+                choose: { settings in change { $0.equalizer = settings.isFlat ? nil : settings } }, customize: edit)
         } header: {
             header()
         }
