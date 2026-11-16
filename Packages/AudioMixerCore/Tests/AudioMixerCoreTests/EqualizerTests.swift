@@ -301,6 +301,14 @@ private func measuredGain(
         #expect(abs(run(mixer, level: 0.4) - 0.4 * 0.251) < 0.005)
     }
 
+    @Test func anEqualizerThatOnlyCutsLeavesLoudPeaksAlone() {
+        // A steady level is every band's 0 Hz, where a peaking band changes nothing: what comes out is what came in,
+        // not bent by the limiter, which has nothing to catch.
+        let mixer = TapMixer(gains: [1])
+        mixer.outputEqualizer.set(EqualizerPreset.builtIn("bassReducer")!.settings)
+        #expect(abs(run(mixer, level: 0.95) - 0.95) < 0.0005)
+    }
+
     @Test func aRaisedSoundIsKeptFromClipping() {
         let mixer = TapMixer(gains: [1])
         mixer.outputEqualizer.set(EqualizerSettings(preamp: 12))

@@ -147,12 +147,14 @@ struct VolumeMixerPageView: View {
     // MARK: Equalizer
 
     /// Every output connected now, and any other with an equalizer kept for when it comes back.
-    private var equalizerOutputs: [(uid: String, name: String, kind: AudioDeviceKind, isConnected: Bool)] {
-        let connected = outputs.map { ($0.uid, $0.name, $0.kind, true) }
+    private var equalizerOutputs:
+        [(uid: String, name: String, kind: AudioDeviceKind, isConnected: Bool, isStereo: Bool)]
+    {
+        let connected = outputs.map { ($0.uid, $0.name, $0.kind, true, $0.isStereo) }
         let remembered = rules.outputs
             .filter { uid, _ in !outputs.contains { $0.uid == uid } }
             .sorted { $0.value.name.localizedStandardCompare($1.value.name) == .orderedAscending }
-            .map { ($0.key, $0.value.name, $0.value.deviceKind ?? .other, false) }
+            .map { ($0.key, $0.value.name, $0.value.deviceKind ?? .other, false, true) }
         return connected + remembered
     }
 
@@ -167,11 +169,14 @@ struct VolumeMixerPageView: View {
                     )
                     .labelsHidden()
                     .fixedSize()
+                    .disabled(!output.isStereo)
                 } label: {
                     Label {
                         Text(verbatim: output.name)
                         if !output.isConnected {
                             Text("Not Connected")
+                        } else if !output.isStereo {
+                            Text("For stereo outputs only, so surround sound stays as it is.")
                         }
                     } icon: {
                         Image(systemName: output.kind.symbolName)

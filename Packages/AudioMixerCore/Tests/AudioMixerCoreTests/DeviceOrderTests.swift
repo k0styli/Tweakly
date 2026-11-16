@@ -226,6 +226,15 @@ import Testing
         #expect(airPods?.output?.equalizer.presetID == "rock")
     }
 
+    @Test func aSurroundOutputIsNeverTakenWhole() {
+        var rules = AudioRuleBook()
+        rules.setEqualizer(EqualizerPreset.builtIn("pop")!.settings, forOutput: "receiver", name: "Receiver")
+        let groups = TapPlan.groups(
+            apps: [], rules: rules, active: [], systemOutputUID: "receiver", connectedOutputs: ["receiver"],
+            activeOutputs: ["receiver"], surroundOutputs: ["receiver"], ownObjectID: 5)
+        #expect(groups.isEmpty)
+    }
+
     @Test func anOutputGivenBackItsSoundStaysTakenForAMoment() {
         // A slider dragged through 0 dB makes the equalizer flat for an instant.
         let groups = TapPlan.groups(

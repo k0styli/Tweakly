@@ -28085,6 +28085,62 @@
           }
         }
       }
+    },
+    "For stereo outputs only, so surround sound stays as it is.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только для стереовыходов, чтобы объёмный звук остался как есть."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur für Stereoausgänge, damit Surround-Ton unverändert bleibt."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ステレオ出力専用です。サラウンドの音はそのまま再生されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅适用于立体声输出，环绕声保持原样。"
+          }
+        }
+      }
+    },
+    "For Stereo Outputs Only": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Только для стереовыходов"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur für Stereoausgänge"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ステレオ出力専用"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅适用于立体声输出"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

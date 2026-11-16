@@ -77,11 +77,13 @@ public enum TapPlan {
     ///   - holding: Apps given back their own sound a moment ago, see `releaseHold`, which stay where they are at
     ///     their own volume.
     ///   - activeOutputs: Outputs something plays on, or did within `linger`.
+    ///   - holdingOutputs: Outputs whose equalizer went flat a moment ago, taken whole and flat a while longer.
+    ///   - surroundOutputs: Outputs with more than two channels, never taken whole.
     ///   - ownObjectID: This process, whose own sound on an output must never be taken again.
     public static func groups(
         apps: [MixerApp], rules: AudioRuleBook, active: Set<String>, systemOutputUID: String?,
         connectedOutputs: Set<String>, holding: Set<String> = [], activeOutputs: Set<String> = [],
-        holdingOutputs: Set<String> = [], ownObjectID: UInt32? = nil
+        holdingOutputs: Set<String> = [], surroundOutputs: Set<String> = [], ownObjectID: UInt32? = nil
     ) -> [TapGroup] {
         var order: [String] = []
         var groups: [String: [TapItem]] = [:]
@@ -112,7 +114,8 @@ public enum TapPlan {
         guard let ownObjectID else { return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? []) } }
         var outputs: [String: OutputTap] = [:]
         let equalized = Set(rules.outputs.filter { !$0.value.equalizer.isFlat }.keys).union(holdingOutputs)
-        for uid in equalized.sorted()
+        // A surround output is never taken whole: the mixer's sound is stereo, and it would fold the rest down.
+        for uid in equalized.subtracting(surroundOutputs).sorted()
         where connectedOutputs.contains(uid) && (activeOutputs.contains(uid) || groups[uid] != nil) {
             if groups[uid] == nil { order.append(uid) }
             let excluded = Set(takenApart[uid] ?? []).union([ownObjectID]).sorted()

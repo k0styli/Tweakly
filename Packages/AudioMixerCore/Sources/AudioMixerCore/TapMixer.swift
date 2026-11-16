@@ -104,8 +104,8 @@ public final class TapMixer: @unchecked Sendable {
         let firstTap = inputs.count - gains.count
         var peakIn: Float = 0
         // The loudest the sum can be against its sources: at most one app at most at full volume needs no limiter,
-        // which would only bend the peaks of a loudly mastered song. An equalizer may raise anything, so with one at
-        // work the limiter always watches.
+        // which would only bend the peaks of a loudly mastered song. An equalizer raising a band or its preamp may
+        // push anything past full scale, so with one doing so the limiter watches; one that only cuts does not.
         var totalGain: Float = 0
         var isEqualizing = false
         for tap in 0..<gains.count {
@@ -140,14 +140,14 @@ public final class TapMixer: @unchecked Sendable {
             }
             if equalizes {
                 equalizer.endCycle(frames: count)
-                isEqualizing = true
+                if equalizer.mayRaise { isEqualizing = true }
             }
         }
         if outputEqualizer.hasWork {
             outputEqualizer.process(
                 left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
                 frames: frames)
-            if !outputEqualizer.isBypassed { isEqualizing = true }
+            if !outputEqualizer.isBypassed, outputEqualizer.mayRaise { isEqualizing = true }
         }
         if totalGain > 1 || isEqualizing {
             for frame in 0..<frames {

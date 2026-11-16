@@ -24,7 +24,11 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private var rules = AudioRuleBook()
     /// Core Audio's clients, as apps too, and the outputs, read again only when they change: a slider moved in the
     /// popover changes the rules many times a second, and that needs no new look at every process playing sound.
-    private var sound: (clients: [AudioClient], apps: [MixerApp], systemOutput: String?, connected: Set<String>)?
+    private var sound:
+        (
+            clients: [AudioClient], apps: [MixerApp], systemOutput: String?, connected: Set<String>,
+            surround: Set<String>
+        )?
     /// When each app with a rule was last heard, for `TapPlan.linger`, and which of them played at the last look.
     private var lastPlayed: [String: Date] = [:]
     private var wasPlaying: Set<String> = []
@@ -143,12 +147,14 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         if readingClients || sound == nil {
             let before = sound?.connected
             let clients = AudioSystem.clients()
+            // Our own private devices come and go with every group built, and are no output to play on.
+            let outputs = AudioSystem.devices(input: false).filter { !$0.uid.hasPrefix(TapEngine.deviceUIDPrefix) }
             sound = (
                 clients,
                 AudioAppGrouping.apps(clients: clients, owner: AudioSystem.owner(of:)),
                 AudioSystem.defaultDevice(input: false).flatMap(AudioSystem.uid(of:)),
-                // Our own private devices come and go with every group built, and are no output to play on.
-                Set(AudioSystem.devices(input: false).map(\.uid).filter { !$0.hasPrefix(TapEngine.deviceUIDPrefix) })
+                Set(outputs.map(\.uid)),
+                Set(outputs.filter { !$0.isStereo }.map(\.uid))
             )
             // An output that arrived, AirPods still coming up say, is worth trying again on.
             if let before, before != sound?.connected { engine.retryFailed() }
@@ -189,8 +195,9 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         }
         let groups = TapPlan.groups(
             apps: apps, rules: rules, active: active, systemOutputUID: sound.systemOutput,
-            connectedOutputs: sound.connected, holding: Set(released.keys), activeOutputs: activeOutputs,
-            holdingOutputs: Set(releasedOutputs.keys), ownObjectID: ownObjectID)
+            connectedOutputs: sound.connected, holding: Set(released.keys),
+            activeOutputs: activeOutputs.intersection(equalized), holdingOutputs: Set(releasedOutputs.keys),
+            surroundOutputs: sound.surround, ownObjectID: ownObjectID)
         engine.apply(groups)
         report()
         scheduleLinger(playing: playing.union(outputsPlaying), now: now)
@@ -230,9 +237,11 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         listenedClients = ruled
     }
 
-    /// Connected outputs with an equalizer, or given back theirs a moment ago: one not connected asks for nothing.
+    /// Connected stereo outputs with an equalizer, or given back theirs a moment ago: one not connected asks for
+    /// nothing, and a surround one is never taken whole, which would fold it down to two channels.
     private func equalizedOutputs(connected: Set<String>) -> Set<String> {
         Set(rules.outputs.keys).union(releasedOutputs.keys).intersection(connected)
+            .subtracting(sound?.surround ?? [])
     }
 
     /// One wakeup, when the soonest quiet app's tap is due to go: no timer runs while nothing changes.

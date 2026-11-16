@@ -268,6 +268,13 @@ final class MixerViewController: NSViewController {
     private func equalizerMenu(for device: AudioDevice) -> NSMenu {
         let menu = NSMenu()
         menu.addItem(.sectionHeader(title: String(localized: "Equalizer")))
+        guard device.isStereo else {
+            // The mixer's sound is stereo: a surround output is left as it is.
+            let note = menu.addItem(
+                withTitle: String(localized: "For Stereo Outputs Only"), action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            return menu
+        }
         let settings = AudioRuleStore.load().equalizer(forOutput: device.uid)
         for item in EqualizerMenu.items(
             settings: settings, custom: AudioRuleStore.customPresets(),

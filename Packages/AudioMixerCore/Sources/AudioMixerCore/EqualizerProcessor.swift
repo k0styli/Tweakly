@@ -20,6 +20,8 @@ public final class EqualizerProcessor: @unchecked Sendable {
     // Shared: Double bit patterns, written by the main thread, read by the audio thread.
     private let wantedGainBits: UnsafeMutablePointer<Atomic<UInt64>>
     private let wantedPreampBits = Atomic<UInt64>(0)
+    /// Whether the sliders raise any band above 0 dB, preamp included.
+    private let raises = Atomic<Bool>(false)
     private let sampleRateBits: Atomic<UInt64>
     private let generation = Atomic<UInt32>(0)
 
@@ -123,6 +125,9 @@ public final class EqualizerProcessor: @unchecked Sendable {
             wantedGainBits[index].store(filterGains[index].bitPattern, ordering: .relaxed)
         }
         wantedPreampBits.store(settings.preamp.bitPattern, ordering: .relaxed)
+        // From the sliders, not the filters: to put the curve through a slider at 0 dB, a filter may be raised a
+        // little against its neighbours' cuts, and that raises nothing a song can be louder for.
+        raises.store((settings.bands.max() ?? 0) + settings.preamp > 0.05, ordering: .relaxed)
         sampleRateBits.store(sampleRate.bitPattern, ordering: .relaxed)
         generation.add(1, ordering: .releasing)
     }
@@ -131,6 +136,10 @@ public final class EqualizerProcessor: @unchecked Sendable {
 
     /// Whether the last cycle left the sound untouched.
     public private(set) var isBypassed = true
+    /// Whether the last cycle could make anything louder than it came: a slider or the preamp above 0 dB, or gains
+    /// still gliding. Only then does the limiter after it have anything to catch; an equalizer that only cuts leaves a
+    /// loud song's peaks alone.
+    public private(set) var mayRaise = false
 
     /// Whether the next cycle has anything to do: no new settings came, and the last cycle left the sound untouched
     /// with nothing still gliding or dying away. A caller may then skip it, and the copying around it, altogether.
@@ -184,6 +193,8 @@ public final class EqualizerProcessor: @unchecked Sendable {
         let startPreamp = preamp
         preamp = wantedPreamp
         isBypassed = activeCount == 0 && startPreamp == 1 && wantedPreamp == 1 && !moving
+        // Still gliding from where it was, it may be louder than its target for a moment.
+        mayRaise = raises.load(ordering: .relaxed) || moving || startPreamp > 1
         cycleGain = startPreamp
         cycleGainStep = (wantedPreamp - startPreamp) / Double(frames)
         return !isBypassed
