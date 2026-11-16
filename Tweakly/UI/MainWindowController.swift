@@ -201,7 +201,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         /// Draws the window as the active one, coloured window buttons and controls in the accent colour, without the
         /// app becoming active: a test copy on the invisible display never takes the focus from the person at the Mac.
         /// AppKit asks a window whether it looks active each time it draws, through private methods; in automation
-        /// builds only (the owner agreed, 2026-11-15) those answers are replaced. If a method is gone, it is skipped and
+        /// builds only those answers are replaced. If a method is gone, it is skipped and
         /// the window keeps its usual look.
         func showActiveForTesting(_ isActive: Bool) {
             Self.forcesActiveAppearance = isActive

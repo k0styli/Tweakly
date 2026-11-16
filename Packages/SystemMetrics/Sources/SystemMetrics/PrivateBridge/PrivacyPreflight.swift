@@ -6,8 +6,8 @@ import Darwin
 /// Public API has a question without a prompt only for Accessibility, Screen Recording and Input Monitoring. For System
 /// Audio Recording and for the Desktop, Documents and Downloads folders the only public way to find out is to use them,
 /// which shows the request. `TCCAccessPreflight` in TCC.framework answers for the calling process as tccd sees it, and
-/// shows nothing. Checked on macOS 27.2 on an M2: 0 allowed, 1 denied, 2 not asked yet. Approved by the owner on
-/// 2026-11-12 for the Permissions page. Without the symbol the page says macOS asks on first use, as it did before.
+/// shows nothing. Checked on macOS 27.2 on an M2: 0 allowed, 1 denied, 2 not asked yet. Only the Permissions
+/// page asks it. Without the symbol the page says macOS asks on first use, as it did before.
 public enum PrivacyPreflight {
     public enum Answer: Equatable, Sendable {
         case allowed
