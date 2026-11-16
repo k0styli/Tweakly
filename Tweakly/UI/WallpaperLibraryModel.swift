@@ -515,4 +515,11 @@ final class ThumbnailCache {
     func forget(_ id: String) {
         cache.removeObject(forKey: id as NSString)
     }
+
+    #if TWEAKLY_AUTOMATION
+        /// What `NSCache` does by itself under memory pressure, which a test cannot bring about on demand.
+        func dropAllForTesting() {
+            cache.removeAllObjects()
+        }
+    #endif
 }

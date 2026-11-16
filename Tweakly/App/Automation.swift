@@ -766,6 +766,18 @@
                 if let entry = window.wallpapers.all.first(where: { $0.wallpaper.title.contains(part) }) {
                     window.wallpapers.setFavourite(entry.wallpaper.id, true)
                 }
+            case "wallpaper-drop-thumbnails":
+                // Only the window: empties the decoded thumbnails as memory pressure would.
+                window?.wallpapers.thumbnails.dropAllForTesting()
+            case "wallpaper-pick":
+                // Only the window, as a click on a tile does: the newest wallpaper whose title holds the argument.
+                guard let window else { return }
+                let part = words.dropFirst().joined(separator: " ")
+                if let entry = window.wallpapers.all.first(where: { $0.wallpaper.title.contains(part) }),
+                    let key = DisplayInfo.connected().first?.key
+                {
+                    window.wallpapers.choose(entry.wallpaper.id, forDisplay: key)
+                }
             case "wallpaper-reload":
                 // What the agent changed for a test, which the window would otherwise only learn on its next visit.
                 windowSettings?.reloadLiveWallpaper()

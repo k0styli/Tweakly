@@ -697,12 +697,17 @@ struct WallpaperThumbnail: View {
     let playsOnHover: Bool
     @State private var isPlaying = false
     @State private var hoverTask: Task<Void, Never>?
-    @State private var loaded: NSImage?
+    /// The view keeps its own picture: the shared cache lets pictures go under memory pressure without telling anyone,
+    /// and a tile that only looked there turned grey the next time it was drawn. Named by its wallpaper, so a view
+    /// that moves on to another wallpaper never shows the one before.
+    @State private var loaded: (id: String, image: NSImage)?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// From the cache at once when it is there, so a tile seen before never flashes empty.
     private var image: NSImage? {
-        loaded ?? entry.flatMap { library.thumbnails.cached($0.wallpaper.id) }
+        guard let id = entry?.wallpaper.id else { return nil }
+        if let loaded, loaded.id == id { return loaded.image }
+        return library.thumbnails.cached(id)
     }
 
     var body: some View {
@@ -728,8 +733,9 @@ struct WallpaperThumbnail: View {
             // Decoded off the main thread, so a large library opens and scrolls without waiting for its pictures.
             // Again once the cleaner has written the wallpaper anew, with its thumbnail.
             .task(id: entry.map { "\($0.wallpaper.id) \($0.fileName) \($0.needsCleaning)" }) {
-                guard let entry, library.thumbnails.cached(entry.wallpaper.id) == nil else { return }
-                loaded = await library.thumbnails.load(entry)
+                // At once from the cache when the picture is there, or decoded again when it has gone.
+                guard let entry, let image = await library.thumbnails.load(entry) else { return }
+                loaded = (entry.wallpaper.id, image)
             }
             .onHover { inside in
                 // A file from before the safety check is not played here until the cleaner has written it anew.
