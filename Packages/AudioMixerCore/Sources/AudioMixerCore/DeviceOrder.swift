@@ -71,7 +71,8 @@ public enum AudioDeviceChoice {
             } else {
                 connected
             }
-        let allowed = candidates.filter { !manualOnly.contains($0) }
+        // A device only chosen by hand is still allowed when the person chose it: it is what stands.
+        let allowed = candidates.filter { !manualOnly.contains($0) || $0 == settled }
         // Only a headset's microphone is there, on a Mac without one of its own: better that than none.
         guard let first = allowed.first else { return nil }
         let target: String

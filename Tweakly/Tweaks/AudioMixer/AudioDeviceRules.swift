@@ -50,6 +50,8 @@ final class AudioDeviceRules {
         var arrived: Set<String> = []
         /// Chosen by this a moment ago, so that hearing it is not taken as the person's choice.
         var expected: String?
+        /// What macOS itself last chose while devices came or went: where a new device goes in the order.
+        var systemChoice: String?
     }
 
     private var keepsMicrophone: Bool
@@ -57,6 +59,8 @@ final class AudioDeviceRules {
     private var sides = [Side(isInput: false), Side(isInput: true)]
     private let listener = AudioListener()
     private var settleEnd: DispatchWorkItem?
+    /// After the sound server starts again its devices come back one by one: none of them is new.
+    private var restartGraceEnd: Date?
     #if TWEAKLY_AUTOMATION
         /// What was chosen and why, for tests.
         private(set) var history: [String] = []
@@ -99,6 +103,13 @@ final class AudioDeviceRules {
     // MARK: Hearing changes
 
     private func changed() {
+        if let end = restartGraceEnd {
+            if Date.now < end {
+                takeAsTheyAre()
+                return
+            }
+            restartGraceEnd = nil
+        }
         var startsSettling = false
         for index in sides.indices {
             let isInput = sides[index].isInput
@@ -116,10 +127,14 @@ final class AudioDeviceRules {
             let current = Self.current(input: sides[index].isInput)
             if let expected = sides[index].expected, current == expected {
                 sides[index].expected = nil
+                if settleEnd == nil { sides[index].settled = current }
             } else if settleEnd == nil, current != sides[index].settled {
                 // Nothing came or went: the person chose this, and it stands.
                 sides[index].settled = current
+                sides[index].expected = nil
                 note("\(sides[index].isInput ? "input" : "output") chosen by hand")
+            } else if settleEnd != nil, current != sides[index].settled, current != sides[index].expected {
+                sides[index].systemChoice = current
             }
             if settleEnd != nil { decide(index) }
         }
@@ -144,15 +159,18 @@ final class AudioDeviceRules {
             // A choice made a moment ago may not read back yet.
             let current = side.expected ?? Self.current(input: side.isInput)
             if ordersDevices {
+                // A new device goes first only if macOS itself chose it, never because this did.
                 order.setList(
                     AudioDeviceChoice.learning(
                         order.list(input: side.isInput), connected: AudioDeviceStore.known(side.connected),
-                        chosenBySystem: current.flatMap { side.arrived.contains($0) ? $0 : nil },
+                        chosenBySystem: side.systemChoice.flatMap { side.arrived.contains($0) ? $0 : nil },
                         isInput: side.isInput),
                     input: side.isInput)
             }
             sides[index].settled = current
             sides[index].arrived = []
+            sides[index].expected = nil
+            sides[index].systemChoice = nil
         }
         if order != orderBefore { AudioDeviceStore.save(order) }
     }
@@ -160,11 +178,18 @@ final class AudioDeviceRules {
     private func restarted() {
         settleEnd?.cancel()
         settleEnd = nil
+        restartGraceEnd = Date.now.addingTimeInterval(Self.settleTime)
+        takeAsTheyAre()
+    }
+
+    /// Whatever is connected and chosen now is where things stand, with nothing come or gone.
+    private func takeAsTheyAre() {
         for index in sides.indices {
             sides[index].connected = Self.devices(input: sides[index].isInput)
             sides[index].settled = Self.current(input: sides[index].isInput)
             sides[index].arrived = []
             sides[index].expected = nil
+            sides[index].systemChoice = nil
         }
     }
 
@@ -183,7 +208,8 @@ final class AudioDeviceRules {
             ordersDevices
             ? AudioDeviceChoice.learning(
                 AudioDeviceStore.load().list(input: side.isInput), connected: AudioDeviceStore.known(side.connected),
-                chosenBySystem: current.flatMap { side.arrived.contains($0) ? $0 : nil }, isInput: side.isInput
+                chosenBySystem: side.systemChoice.flatMap { side.arrived.contains($0) ? $0 : nil },
+                isInput: side.isInput
             ).map(\.uid) : nil
         guard
             let target = AudioDeviceChoice.choice(

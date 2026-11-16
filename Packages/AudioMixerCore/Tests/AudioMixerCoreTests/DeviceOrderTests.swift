@@ -67,6 +67,14 @@ import Testing
         #expect(choice == nil)
     }
 
+    @Test func aHeadsetMicrophoneChosenByHandIsNotTakenAwayByAnyDeviceComing() {
+        // The person picked the AirPods' microphone for a call; a webcam's microphone comes and macOS leaves it.
+        let choice = AudioDeviceChoice.choice(
+            connected: [builtIn, airPods, usb], current: airPods, settled: airPods, arrived: [usb], order: nil,
+            manualOnly: [airPods])
+        #expect(choice == nil)
+    }
+
     @Test func aMacWithOnlyAHeadsetMicrophoneKeepsIt() {
         let choice = AudioDeviceChoice.choice(
             connected: [airPods], current: airPods, settled: nil, arrived: [airPods], order: nil, manualOnly: [airPods])
@@ -191,6 +199,40 @@ import Testing
         #expect(speakers?.taps.map(\.bundleID) == ["safari"])
         #expect(speakers?.output?.excluded == [5, 20, 21, 30])
         #expect(groups.contains { $0.outputUID == "headphones" && $0.output == nil })
+    }
+
+    @Test func onlyAppsPlayingOnAnOutputByThemselvesAreLeftOutOfIt() {
+        // A call app that chose the headset by itself and was given a volume is taken apart there, and has nothing
+        // to do with the speakers' whole sound.
+        var rules = AudioRuleBook()
+        rules.set(AppAudioRule(volume: 0.5), for: "zoom")
+        rules.setEqualizer(EqualizerPreset.builtIn("pop")!.settings, forOutput: "speakers", name: "Speakers")
+        let groups = TapPlan.groups(
+            apps: [app("zoom", [30], output: "headphones")], rules: rules, active: ["zoom"],
+            systemOutputUID: "speakers", connectedOutputs: ["speakers", "headphones"], activeOutputs: ["speakers"],
+            ownObjectID: 5)
+        #expect(groups.first { $0.outputUID == "speakers" }?.output?.excluded == [5])
+    }
+
+    @Test func anAppSentToAnOutputGetsItsEqualizerEvenWithNothingElsePlayingThere() {
+        var rules = AudioRuleBook()
+        rules.set(AppAudioRule(outputUID: "airpods"), for: "spotify")
+        rules.setEqualizer(EqualizerPreset.builtIn("rock")!.settings, forOutput: "airpods", name: "AirPods")
+        let groups = TapPlan.groups(
+            apps: [app("spotify", [40])], rules: rules, active: ["spotify"], systemOutputUID: "speakers",
+            connectedOutputs: ["speakers", "airpods"], activeOutputs: ["speakers"], ownObjectID: 5)
+        let airPods = groups.first { $0.outputUID == "airpods" }
+        #expect(airPods?.taps.map(\.bundleID) == ["spotify"])
+        #expect(airPods?.output?.equalizer.presetID == "rock")
+    }
+
+    @Test func anOutputGivenBackItsSoundStaysTakenForAMoment() {
+        // A slider dragged through 0 dB makes the equalizer flat for an instant.
+        let groups = TapPlan.groups(
+            apps: [], rules: AudioRuleBook(), active: [], systemOutputUID: "speakers", connectedOutputs: ["speakers"],
+            activeOutputs: ["speakers"], holdingOutputs: ["speakers"], ownObjectID: 5)
+        #expect(groups.first?.output?.equalizer == .flat)
+        #expect(groups.first?.output?.excluded == [5])
     }
 
     @Test func aNewEqualizerValueNeedsNothingBuilt() {

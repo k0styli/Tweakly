@@ -81,10 +81,12 @@ public enum TapPlan {
     public static func groups(
         apps: [MixerApp], rules: AudioRuleBook, active: Set<String>, systemOutputUID: String?,
         connectedOutputs: Set<String>, holding: Set<String> = [], activeOutputs: Set<String> = [],
-        ownObjectID: UInt32? = nil
+        holdingOutputs: Set<String> = [], ownObjectID: UInt32? = nil
     ) -> [TapGroup] {
         var order: [String] = []
         var groups: [String: [TapItem]] = [:]
+        /// The processes of apps taken apart, by the output they play on by themselves, where their own sound is muted.
+        var takenApart: [String: [UInt32]] = [:]
         for app in apps where active.contains(app.id) && !app.objectIDs.isEmpty {
             let rule = rules.rule(for: app.id)
             let isHeld = holding.contains(app.id)
@@ -101,17 +103,21 @@ public enum TapPlan {
                 TapItem(
                     bundleID: app.id, objectIDs: app.objectIDs.sorted(), gain: rule.gain,
                     equalizer: rule.equalizer ?? .flat))
+            if let natural { takenApart[natural, default: []] += app.objectIDs }
         }
-        // The apps taken apart, wherever they play now, and this process are left out of every output's whole sound.
+        // An output with an equalizer is taken whole while something plays on it by itself, or an app is sent there,
+        // whose sound reaches it only through this. Left out: this process, and the apps taken apart that play on it
+        // by themselves, which reach it through their own taps; an app taken apart elsewhere never plays here.
         // Without knowing this process, no output is taken whole: it would take back its own sound, round and round.
-        let takenApart = Set(groups.values.flatMap { $0.flatMap(\.objectIDs) })
-        var outputs: [String: OutputTap] = [:]
         guard let ownObjectID else { return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? []) } }
-        let excluded = takenApart.union([ownObjectID]).sorted()
-        for (uid, sound) in rules.outputs.sorted(by: { $0.key < $1.key })
-        where !sound.equalizer.isFlat && connectedOutputs.contains(uid) && activeOutputs.contains(uid) {
+        var outputs: [String: OutputTap] = [:]
+        let equalized = Set(rules.outputs.filter { !$0.value.equalizer.isFlat }.keys).union(holdingOutputs)
+        for uid in equalized.sorted()
+        where connectedOutputs.contains(uid) && (activeOutputs.contains(uid) || groups[uid] != nil) {
             if groups[uid] == nil { order.append(uid) }
-            outputs[uid] = OutputTap(excluded: excluded, equalizer: sound.equalizer)
+            let excluded = Set(takenApart[uid] ?? []).union([ownObjectID]).sorted()
+            // One given back its own sound a moment ago stays taken, flat, as an app does (`releaseHold`).
+            outputs[uid] = OutputTap(excluded: excluded, equalizer: rules.equalizer(forOutput: uid))
         }
         return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? [], output: outputs[$0]) }
     }

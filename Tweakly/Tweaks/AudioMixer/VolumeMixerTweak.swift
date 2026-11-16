@@ -44,7 +44,11 @@ final class VolumeMixerTweak {
         systemListener.listen(
             to: AudioObjectID(kAudioObjectSystemObject),
             [kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices]
-        ) { [weak self] in self?.followOutput() }
+        ) { [weak self] in
+            self?.followOutput()
+            // An output with an equalizer may have come or gone.
+            self?.syncProcess()
+        }
         // After the sound server starts again the output may keep its number, but the listeners on it are gone.
         systemListener.listen(
             to: AudioObjectID(kAudioObjectSystemObject), [kAudioHardwarePropertyServiceRestarted]
@@ -148,21 +152,30 @@ final class VolumeMixerTweak {
 
     // MARK: The process that plays
 
-    /// Runs while any app has a rule of its own or any output an equalizer. It decides by itself what to take and when.
+    /// Runs while any app has a rule of its own or a connected output an equalizer. It decides by itself what to take
+    /// and when.
     private func syncProcess() {
         guard !hasGivenUp else { return }
-        if !AudioRuleStore.load().isEmpty {
+        if Self.needsProcess(AudioRuleStore.load()) {
             pendingStop?.cancel()
             pendingStop = nil
             startProcess()
         } else if process != nil, pendingStop == nil {
             let stop = DispatchWorkItem { [weak self] in
                 self?.pendingStop = nil
-                if AudioRuleStore.load().isEmpty { self?.stopProcess() }
+                if !Self.needsProcess(AudioRuleStore.load()) { self?.stopProcess() }
             }
             pendingStop = stop
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.stopDelay, execute: stop)
         }
+    }
+
+    /// An equalizer kept for an output that is not connected asks for no process.
+    private static func needsProcess(_ book: AudioRuleBook) -> Bool {
+        if !book.rules.isEmpty { return true }
+        guard !book.outputs.isEmpty else { return false }
+        let connected = Set(AudioSystem.devices(input: false).map(\.uid))
+        return book.outputs.keys.contains(where: connected.contains)
     }
 
     private func startProcess() {

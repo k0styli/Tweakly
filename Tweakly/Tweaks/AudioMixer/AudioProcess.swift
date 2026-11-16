@@ -44,6 +44,8 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private var linger: DispatchWorkItem?
     /// Apps whose rule went a moment ago, see `TapPlan.releaseHold`, and when.
     private var released: [String: Date] = [:]
+    /// The same for outputs whose equalizer went flat, as a slider dragged through 0 dB makes it for an instant.
+    private var releasedOutputs: [String: Date] = [:]
     private var releaseEnd: DispatchWorkItem?
     private var eventTokens: [Int32] = []
     private var parentWatch: DispatchSourceProcess?
@@ -108,6 +110,8 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         let now = Date.now
         for id in ruledBefore.subtracting(rules.rules.keys) { released[id] = now }
         for id in rules.rules.keys { released[id] = nil }
+        for uid in outputsBefore.subtracting(rules.outputs.keys) { releasedOutputs[uid] = now }
+        for uid in rules.outputs.keys { releasedOutputs[uid] = nil }
         if ruledChanged {
             engine.retryFailed()
         } else if !engine.isPermitted, Date.now.timeIntervalSince(lastRefusedRetry) >= Self.refusedRetryInterval {
@@ -166,25 +170,27 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         let active = TapPlan.active(lastPlayed: lastPlayed, playing: playing, now: now)
         lastPlayed = lastPlayed.filter { active.contains($0.key) }
         released = released.filter { now.timeIntervalSince($0.value) < TapPlan.releaseHold }
+        releasedOutputs = releasedOutputs.filter { now.timeIntervalSince($0.value) < TapPlan.releaseHold }
         // An output with an equalizer is taken while anything plays on it, and a while after, as an app is.
+        let equalized = equalizedOutputs(connected: sound.connected)
         let outputsPlaying =
-            rules.outputs.isEmpty
+            equalized.isEmpty
             ? []
             : TapPlan.playingOutputs(
                 clients: sound.clients, systemOutputUID: sound.systemOutput, ownPID: getpid()
-            ).intersection(rules.outputs.keys)
+            ).intersection(equalized)
         outputLastPlayed = TapPlan.heard(
             lastPlayed: outputLastPlayed, wasPlaying: outputsWerePlaying, playing: outputsPlaying, now: now)
         outputsWerePlaying = outputsPlaying
         let activeOutputs = TapPlan.active(lastPlayed: outputLastPlayed, playing: outputsPlaying, now: now)
         outputLastPlayed = outputLastPlayed.filter { activeOutputs.contains($0.key) }
-        if ownObjectID == nil, !rules.outputs.isEmpty {
+        if ownObjectID == nil, !equalized.isEmpty {
             ownObjectID = (try? AudioHardwareSystem.shared.process(for: getpid()))?.id
         }
         let groups = TapPlan.groups(
             apps: apps, rules: rules, active: active, systemOutputUID: sound.systemOutput,
             connectedOutputs: sound.connected, holding: Set(released.keys), activeOutputs: activeOutputs,
-            ownObjectID: ownObjectID)
+            holdingOutputs: Set(releasedOutputs.keys), ownObjectID: ownObjectID)
         engine.apply(groups)
         report()
         scheduleLinger(playing: playing.union(outputsPlaying), now: now)
@@ -195,7 +201,7 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     private func scheduleReleaseEnd(now: Date) {
         releaseEnd?.cancel()
         releaseEnd = nil
-        guard let last = released.values.max() else { return }
+        guard let last = (Array(released.values) + Array(releasedOutputs.values)).max() else { return }
         let delay = max(0.1, TapPlan.releaseHold - now.timeIntervalSince(last) + 0.1)
         let work = DispatchWorkItem { [weak self] in self?.evaluate(readingClients: false) }
         releaseEnd = work
@@ -206,7 +212,7 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
     /// equalizer on an output, whether anything plays there is the same property of every process.
     private func listenToPlaying(of apps: [MixerApp], clients: [AudioClient]) {
         let ruled =
-            rules.outputs.isEmpty
+            equalizedOutputs(connected: sound?.connected ?? []).isEmpty
             ? Set(apps.filter { !rules.rule(for: $0.id).isStandard }.flatMap(\.objectIDs))
             : Set(clients.map(\.objectID))
         guard ruled != listenedClients else { return }
@@ -222,6 +228,11 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
             ) { [weak self] in self?.evaluate(readingClients: true) }
         }
         listenedClients = ruled
+    }
+
+    /// Connected outputs with an equalizer, or given back theirs a moment ago: one not connected asks for nothing.
+    private func equalizedOutputs(connected: Set<String>) -> Set<String> {
+        Set(rules.outputs.keys).union(releasedOutputs.keys).intersection(connected)
     }
 
     /// One wakeup, when the soonest quiet app's tap is due to go: no timer runs while nothing changes.

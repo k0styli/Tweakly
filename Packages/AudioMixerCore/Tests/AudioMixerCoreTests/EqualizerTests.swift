@@ -40,6 +40,7 @@ private func measuredGain(
 
 @Suite struct EqualizerSettingsTests {
     @Test func musicsPresetsAreAllThere() {
+        #expect(EqualizerSettings.frequencies.count == EqualizerProcessor.bandCount)
         #expect(EqualizerPreset.builtIn.count == 22)
         #expect(Set(EqualizerPreset.builtIn.map(\.id)).count == 22)
         #expect(EqualizerPreset.builtIn.allSatisfy { $0.bands.count == 10 })
@@ -181,6 +182,35 @@ private func measuredGain(
         // At +12 dB the sine's own steps are four times larger; a click would be far beyond that.
         #expect(largestStep < 0.06, "largest step \(largestStep)")
         #expect(processor.isBypassed, "back to flat, it lets the sound alone again")
+    }
+
+    @Test(arguments: [128, 512])
+    func aLowBandTurnedOffDiesAwayWithoutAClick(frames: Int) {
+        // A 40 Hz tone through the 32 Hz band at +6 dB, then Off: the band glides to 0 dB and lets its memory fade.
+        let rate = 48_000.0
+        let processor = EqualizerProcessor(sampleRate: rate)
+        processor.set(EqualizerSettings(bands: [6, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+        var phase = 0.0
+        var last: Float = 0
+        var largestStep: Float = 0
+        for cycle in 0..<(Int(rate) * 2 / frames) {
+            if cycle == Int(rate) / frames { processor.set(.flat) }
+            var buffer = [Float](repeating: 0, count: frames)
+            for frame in 0..<frames {
+                buffer[frame] = 0.5 * Float(sin(phase))
+                phase += 2 * Double.pi * 40 / rate
+            }
+            buffer.withUnsafeMutableBufferPointer {
+                processor.process(left: $0.baseAddress!, leftStride: 1, right: nil, rightStride: 0, frames: frames)
+            }
+            for sample in buffer {
+                largestStep = max(largestStep, abs(sample - last))
+                last = sample
+            }
+        }
+        // The tone's own steps at +6 dB are about 0.0053; a band cut off early would jump by several times that.
+        #expect(largestStep < 0.0065, "largest step \(largestStep)")
+        #expect(processor.isBypassed)
     }
 
     @Test func interleavedChannelsAreEachTheirOwn() {

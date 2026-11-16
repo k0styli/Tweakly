@@ -11,9 +11,11 @@ public final class EqualizerProcessor: @unchecked Sendable {
     /// How fast a gain glides, so that a dragged slider or a new preset neither clicks nor buzzes: the whole range in
     /// a fifth of a second.
     public static let decibelsPerSecond = 120.0
-    private static let bandCount = EqualizerSettings.frequencies.count
-    /// A band's filter keeps running this many cycles after reaching 0 dB, while what it holds dies away.
-    private static let tailCycles = 2
+    /// A literal, not the array's count: the audio thread reads it every cycle.
+    static let bandCount = 10
+    /// A band back at 0 dB keeps running while what it holds dies away, below this, which takes a few tens of
+    /// milliseconds for the lowest band: dropping it sooner would leave a step in the sound.
+    private static let silentMemory = 1e-7
 
     // Shared: Double bit patterns, written by the main thread, read by the audio thread.
     private let wantedGainBits: UnsafeMutablePointer<Atomic<UInt64>>
@@ -38,6 +40,8 @@ public final class EqualizerProcessor: @unchecked Sendable {
     private let memory: UnsafeMutablePointer<Double>
     private let active: UnsafeMutablePointer<Int>
     private var activeCount = 0
+    /// The bands' frequencies, copied once, so the audio thread never touches a Swift array.
+    private let centres: UnsafeMutablePointer<Double>
 
     public init(sampleRate: Double) {
         let rate = sampleRate.isFinite && sampleRate > 0 ? sampleRate : 48_000
@@ -59,6 +63,10 @@ public final class EqualizerProcessor: @unchecked Sendable {
         memory.initialize(repeating: 0, count: count * 4)
         active = .allocate(capacity: count)
         active.initialize(repeating: 0, count: count)
+        centres = .allocate(capacity: count)
+        for (index, frequency) in EqualizerSettings.frequencies.enumerated() {
+            (centres + index).initialize(to: frequency)
+        }
     }
 
     deinit {
@@ -71,6 +79,7 @@ public final class EqualizerProcessor: @unchecked Sendable {
         tails.deallocate()
         memory.deallocate()
         active.deallocate()
+        centres.deallocate()
     }
 
     // MARK: The main thread
@@ -117,20 +126,14 @@ public final class EqualizerProcessor: @unchecked Sendable {
             if gains[band] != wanted[band] {
                 let difference = wanted[band] - gains[band]
                 gains[band] = abs(difference) <= step ? wanted[band] : gains[band] + (difference > 0 ? step : -step)
-                filters[band] = EqualizerFilter.peaking(
-                    frequency: EqualizerSettings.frequencies[band], gain: gains[band], sampleRate: rate)
-                tails[band] = Self.tailCycles
+                filters[band] = EqualizerFilter.peaking(frequency: centres[band], gain: gains[band], sampleRate: rate)
                 moving = true
             }
+            // `tails` counts the frames a band at 0 dB may still run, a second at most, in case its memory never
+            // settles below `silentMemory`.
             if gains[band] != 0 {
-                tails[band] = Self.tailCycles
-            } else if tails[band] > 0 {
-                tails[band] -= 1
-                if tails[band] == 0 {
-                    clearMemory(of: band)
-                    continue
-                }
-            } else {
+                tails[band] = Int(rate)
+            } else if tails[band] <= 0 {
                 continue
             }
             active[activeCount] = band
@@ -144,6 +147,18 @@ public final class EqualizerProcessor: @unchecked Sendable {
         run(left, stride: leftStride, frames: frames, channel: 0, preamp: startPreamp, preampStep: preampStep)
         if let right {
             run(right, stride: rightStride, frames: frames, channel: 1, preamp: startPreamp, preampStep: preampStep)
+        }
+        // A band back at 0 dB stops once what it holds has died away, and only then forgets it.
+        for index in 0..<activeCount {
+            let band = active[index]
+            guard gains[band] == 0 else { continue }
+            tails[band] -= frames
+            var loudest = 0.0
+            for slot in 0..<4 { loudest = max(loudest, abs(memory[band * 4 + slot])) }
+            if loudest < Self.silentMemory || tails[band] <= 0 {
+                tails[band] = 0
+                clearMemory(of: band)
+            }
         }
     }
 
@@ -162,8 +177,7 @@ public final class EqualizerProcessor: @unchecked Sendable {
             rate = newRate
             // Every filter is drawn again for the new rate, from where it is now.
             for band in 0..<Self.bandCount {
-                filters[band] = EqualizerFilter.peaking(
-                    frequency: EqualizerSettings.frequencies[band], gain: gains[band], sampleRate: rate)
+                filters[band] = EqualizerFilter.peaking(frequency: centres[band], gain: gains[band], sampleRate: rate)
             }
         }
     }
