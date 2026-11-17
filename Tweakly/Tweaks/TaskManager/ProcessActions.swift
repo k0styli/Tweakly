@@ -165,12 +165,26 @@ enum ProcessActions {
     /// of the app that is running, the one with a Dock icon first.
     private static func runningApp(at bundle: String, preferring entry: ProcessEntry) -> NSRunningApplication? {
         let head = entry.members.first { $0.pid == entry.pid }
+        let real = resolved(bundle)
         if head?.isRunning ?? true, let app = NSRunningApplication(processIdentifier: entry.pid),
-            app.bundleURL?.path == bundle
+            isBundle(app, at: bundle, resolved: real)
         {
             return app
         }
-        let copies = NSWorkspace.shared.runningApplications.filter { $0.bundleURL?.path == bundle }
+        let copies = NSWorkspace.shared.runningApplications.filter { isBundle($0, at: bundle, resolved: real) }
         return copies.first { $0.activationPolicy == .regular } ?? copies.first
+    }
+
+    /// The row has the path the app runs from, with its links followed, while Launch Services may name it by a link:
+    /// Safari in `/Applications` leads into a cryptex. Missed, the app would get a signal instead of its own quit.
+    private static func isBundle(_ app: NSRunningApplication, at bundle: String, resolved real: String) -> Bool {
+        guard let path = app.bundleURL?.path else { return false }
+        return path == bundle || resolved(path) == real
+    }
+
+    private static func resolved(_ path: String) -> String {
+        guard let real = realpath(path, nil) else { return path }
+        defer { free(real) }
+        return String(cString: real)
     }
 }
