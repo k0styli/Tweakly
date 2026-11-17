@@ -181,17 +181,19 @@ private func measuredGain(
         #expect(abs(heard + 6) < 0.1)
     }
 
-    @Test func aNewPresetGlidesInWithoutAJump() {
+    /// Cycles of every length an output may ask for: a long one moves the coefficients no further at once.
+    @Test(arguments: [256, 4096])
+    func aNewPresetGlidesInWithoutAJump(frames: Int) {
         let rate = 48_000.0
         let processor = EqualizerProcessor(sampleRate: rate)
-        let frames = 256
         var phase = 0.0
         var largestStep: Float = 0
         var last: Float = 0
         // A 100 Hz sine, whose own largest step between two frames is about 0.013 at this level.
-        for cycle in 0..<200 {
-            if cycle == 50 { processor.set(EqualizerSettings(bands: [12, 12, 12, 12, 0, 0, 0, 0, 0, 0])) }
-            if cycle == 120 { processor.set(.flat) }
+        let cycles = max(51_200 / frames, 80)
+        for cycle in 0..<cycles {
+            if cycle == cycles / 4 { processor.set(EqualizerSettings(bands: [12, 12, 12, 12, 0, 0, 0, 0, 0, 0])) }
+            if cycle == cycles * 3 / 5 { processor.set(.flat) }
             var buffer = [Float](repeating: 0, count: frames)
             for frame in 0..<frames {
                 buffer[frame] = 0.1 * Float(sin(phase))
@@ -242,9 +244,9 @@ private func measuredGain(
     @Test func interleavedChannelsAreEachTheirOwn() {
         let processor = EqualizerProcessor(sampleRate: 48_000)
         processor.set(EqualizerSettings(preamp: -6))
-        // The first cycle glides the preamp in; the second is all at its value.
+        // The first cycles glide the preamp in; the last is all at its value.
         var frames: [Float] = []
-        for _ in 0..<2 {
+        for _ in 0..<6 {
             frames = [Float]([0.5, -0.25]).repeated(2048)
             frames.withUnsafeMutableBufferPointer {
                 processor.process(
@@ -274,6 +276,84 @@ private func measuredGain(
         }
         let allFinite = samples.allSatisfy { $0.isFinite }
         #expect(allFinite)
+    }
+
+    /// A high band changes what comes out at once with its coefficients, so a long cycle must not move it far: a
+    /// 1 kHz tone under the 16 kHz band turned to +12 dB.
+    @Test(arguments: [512, 4096])
+    func aHighBandMovesWithoutAClickInLongCycles(frames: Int) {
+        let rate = 48_000.0
+        let processor = EqualizerProcessor(sampleRate: rate)
+        var phase = 0.0
+        var last: Float = 0
+        var largestStep: Float = 0
+        for cycle in 0..<(Int(rate) * 2 / frames) {
+            if cycle == 2 { processor.set(EqualizerSettings(bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 12])) }
+            var buffer = [Float](repeating: 0, count: frames)
+            for frame in 0..<frames {
+                buffer[frame] = 0.3 * Float(sin(phase))
+                phase += 2 * Double.pi * 1000 / rate
+            }
+            buffer.withUnsafeMutableBufferPointer {
+                processor.process(left: $0.baseAddress!, leftStride: 1, right: nil, rightStride: 0, frames: frames)
+            }
+            for sample in buffer {
+                largestStep = max(largestStep, abs(sample - last))
+                last = sample
+            }
+        }
+        // The tone's own steps are about 0.039; ten decibels at once on that band jump by six times as much.
+        #expect(largestStep < 0.08, "largest step \(largestStep)")
+    }
+
+    @Test func thePreampGlidesAsTheBandsDo() {
+        // From 0 to -12 dB: one cycle of 512 frames moves it by the bands' step, not the whole way.
+        let processor = EqualizerProcessor(sampleRate: 48_000)
+        processor.set(EqualizerSettings(preamp: -12))
+        var samples = [Float](repeating: 0.5, count: 512)
+        samples.withUnsafeMutableBufferPointer {
+            processor.process(left: $0.baseAddress!, leftStride: 1, right: nil, rightStride: 0, frames: 512)
+        }
+        let step = EqualizerProcessor.decibelsPerSecond * 512 / 48_000
+        #expect(abs(samples[511] - 0.5 * Float(pow(10, -step / 20))) < 0.001, "\(samples[511])")
+    }
+
+    @Test func aRaisedPreampRaisesThoughEveryBandCuts() {
+        // Far from every band the curve is the preamp alone.
+        let processor = EqualizerProcessor(sampleRate: 48_000)
+        processor.set(EqualizerSettings(preamp: 3, bands: Array(repeating: -6, count: 10)))
+        process(processor, cycles: 40)
+        #expect(processor.mayRaise)
+    }
+
+    @Test func aGlideBetweenCutsNeverRaises() {
+        // From one preset that only cuts to another, the gains in between cut too: the gentle knee stays.
+        let processor = EqualizerProcessor(sampleRate: 48_000)
+        processor.set(EqualizerPreset.builtIn("bassReducer")!.settings)
+        var raised = false
+        for cycle in 0..<60 {
+            if cycle == 30 { processor.set(EqualizerPreset.builtIn("trebleReducer")!.settings) }
+            process(processor, cycles: 1)
+            raised = raised || processor.mayRaise
+        }
+        #expect(!raised)
+        // From one that raises, the glide may raise until it is over.
+        processor.set(EqualizerPreset.builtIn("bassBooster")!.settings)
+        process(processor, cycles: 40)
+        processor.set(EqualizerPreset.builtIn("bassReducer")!.settings)
+        process(processor, cycles: 1)
+        #expect(processor.mayRaise)
+        process(processor, cycles: 40)
+        #expect(!processor.mayRaise)
+    }
+
+    private func process(_ processor: EqualizerProcessor, cycles: Int) {
+        for _ in 0..<cycles {
+            var samples = [Float](repeating: 0.1, count: 512)
+            samples.withUnsafeMutableBufferPointer {
+                processor.process(left: $0.baseAddress!, leftStride: 1, right: nil, rightStride: 0, frames: 512)
+            }
+        }
     }
 
     @Test func aNewRateRedrawsTheFilters() {

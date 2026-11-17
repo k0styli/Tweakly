@@ -11,6 +11,9 @@ public final class EqualizerProcessor: @unchecked Sendable {
     /// How fast a gain glides, so that a dragged slider or a new preset neither clicks nor buzzes: the whole range in
     /// a fifth of a second.
     public static let decibelsPerSecond = 120.0
+    /// The most a gain moves in one cycle, whatever its length: each band's coefficients change once a cycle, and a
+    /// cycle of 4096 frames would otherwise step 10 dB at once. Cycles of up to 512 frames glide at the full speed.
+    static let largestStepPerCycle = 1.5
     /// A literal, not the array's count: the audio thread reads it every cycle.
     static let bandCount = 10
     /// A band back at 0 dB keeps running while what it holds dies away, below this, which takes a few tens of
@@ -34,8 +37,14 @@ public final class EqualizerProcessor: @unchecked Sendable {
     private var rate: Double
     private let gains: UnsafeMutablePointer<Double>
     private let wanted: UnsafeMutablePointer<Double>
+    /// The preamp as a factor and in decibels, gliding in decibels at the bands' speed.
     private var preamp: Double = 1
-    private var wantedPreamp: Double = 1
+    private var preampDecibels: Double = 0
+    private var wantedPreampDecibels: Double = 0
+    /// Whether the sliders now raise anything, and whether anything since the gains last stood still did: a glide
+    /// between two settings that only cut never raises.
+    private var raisesNow = false
+    private var glideMayRaise = false
     private let filters: UnsafeMutablePointer<Biquad>
     private let tails: UnsafeMutablePointer<Int>
     /// Each band's two numbers of memory, the left channel's and the right's side by side.
@@ -126,8 +135,9 @@ public final class EqualizerProcessor: @unchecked Sendable {
         }
         wantedPreampBits.store(settings.preamp.bitPattern, ordering: .relaxed)
         // From the sliders, not the filters: to put the curve through a slider at 0 dB, a filter may be raised a
-        // little against its neighbours' cuts, and that raises nothing a song can be louder for.
-        raises.store((settings.bands.max() ?? 0) + settings.preamp > 0.05, ordering: .relaxed)
+        // little against its neighbours' cuts, and that raises nothing a song can be louder for. Far from every band
+        // the curve is the preamp alone, so a raised preamp raises something even with every band cut.
+        raises.store(max(settings.bands.max() ?? 0, 0) + settings.preamp > 0.05, ordering: .relaxed)
         sampleRateBits.store(sampleRate.bitPattern, ordering: .relaxed)
         generation.add(1, ordering: .releasing)
     }
@@ -137,9 +147,12 @@ public final class EqualizerProcessor: @unchecked Sendable {
     /// Whether the last cycle left the sound untouched.
     public private(set) var isBypassed = true
     /// Whether the last cycle could make anything louder than it came: a slider or the preamp above 0 dB, or gains
-    /// still gliding. Only then does the limiter after it have anything to catch; an equalizer that only cuts leaves a
-    /// loud song's peaks alone.
+    /// still gliding from or towards such settings. Only then does the limiter after it have anything to catch; an
+    /// equalizer that only cuts leaves a loud song's peaks alone.
     public private(set) var mayRaise = false
+    /// Whether what the bands hold has died away, so that silence in would give silence out: a cycle of silence may
+    /// then pass without filtering, see `passSilence`.
+    public private(set) var isSettled = true
 
     /// Whether the next cycle has anything to do: no new settings came, and the last cycle left the sound untouched
     /// with nothing still gliding or dying away. A caller may then skip it, and the copying around it, altogether.
@@ -167,7 +180,7 @@ public final class EqualizerProcessor: @unchecked Sendable {
     func beginCycle(frames: Int) -> Bool {
         guard frames > 0 else { return false }
         takeNewSettings()
-        let step = Self.decibelsPerSecond * Double(frames) / rate
+        let step = min(Self.decibelsPerSecond * Double(frames) / rate, Self.largestStepPerCycle)
         activeCount = 0
         var moving = false
         for band in 0..<Self.bandCount {
@@ -191,12 +204,18 @@ public final class EqualizerProcessor: @unchecked Sendable {
             activeCount += 1
         }
         let startPreamp = preamp
-        preamp = wantedPreamp
-        isBypassed = activeCount == 0 && startPreamp == 1 && wantedPreamp == 1 && !moving
-        // Still gliding from where it was, it may be louder than its target for a moment.
-        mayRaise = raises.load(ordering: .relaxed) || moving || startPreamp > 1
+        if preampDecibels != wantedPreampDecibels {
+            let difference = wantedPreampDecibels - preampDecibels
+            preampDecibels =
+                abs(difference) <= step ? wantedPreampDecibels : preampDecibels + (difference > 0 ? step : -step)
+            preamp = preampDecibels == 0 ? 1 : pow(10, preampDecibels / 20)
+            moving = true
+        }
+        isBypassed = activeCount == 0 && startPreamp == 1 && preamp == 1 && !moving
+        if !moving { glideMayRaise = raisesNow }
+        mayRaise = moving ? glideMayRaise : raisesNow
         cycleGain = startPreamp
-        cycleGainStep = (wantedPreamp - startPreamp) / Double(frames)
+        cycleGainStep = (preamp - startPreamp) / Double(frames)
         return !isBypassed
     }
 
@@ -249,7 +268,11 @@ public final class EqualizerProcessor: @unchecked Sendable {
             wanted[band] = value.isFinite ? value : 0
         }
         let decibels = Double(bitPattern: wantedPreampBits.load(ordering: .relaxed))
-        wantedPreamp = decibels.isFinite ? pow(10, decibels / 20) : 1
+        wantedPreampDecibels = decibels.isFinite ? decibels : 0
+        let newRaises = raises.load(ordering: .relaxed)
+        // Wherever the gains now are, they glide from settings that raised or did not towards these.
+        glideMayRaise = glideMayRaise || raisesNow || newRaises
+        raisesNow = newRaises
         let newRate = Double(bitPattern: sampleRateBits.load(ordering: .relaxed))
         if newRate.isFinite, newRate > 0, newRate != rate {
             rate = newRate
