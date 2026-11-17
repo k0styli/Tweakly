@@ -194,6 +194,7 @@ enum MainPage: Hashable, Identifiable {
                 String(localized: "Library"), String(localized: "Find Wallpapers"), String(localized: "Fill Screen"),
                 String(localized: "Same on All Displays"), String(localized: "Pause in Full Screen"),
                 String(localized: "Economy Mode"), String(localized: "Resolution"), "Full HD", "1080p", "1440p", "4K",
+                String(localized: "Loop Transition"),
                 String(localized: "Pause on Battery Power"),
                 String(localized: "Pause in Low Power Mode"), String(localized: "Keep Downloads Up To"),
                 "MoeWalls", "MotionBGs", "Pexels", "Pixabay", "Mixkit", "Wallhaven",
@@ -218,7 +219,11 @@ enum MainPage: Hashable, Identifiable {
                 String(localized: "Input"), String(localized: "Apps"), String(localized: "Muted"),
                 String(localized: "Show the Microphone"), String(localized: "Boost Up to 200 %"),
                 String(localized: "Scroll Over the Icon"), String(localized: "System Audio Recording"),
-                "AirPods", "Bluetooth",
+                String(localized: "Equalizer"),
+                String(localized: "Preamp", comment: "The equalizer's preamp, as in Music"),
+                String(localized: "Keep the Microphone When Headphones Connect"),
+                String(localized: "Choose Devices in Order"), String(localized: "Device Order"),
+                String(localized: "Devices"), "AirPods", "Bluetooth", "EQ",
             ]
         case .settings:
             [
