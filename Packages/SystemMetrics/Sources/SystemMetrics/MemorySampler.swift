@@ -102,8 +102,12 @@ final class MemorySampler: MetricSampler {
     private func readPressure() -> MemoryPressure {
         var level: Int32 = 0
         var length = MemoryLayout<Int32>.size
-        var mib = pressureMIB
-        guard !mib.isEmpty, sysctl(&mib, UInt32(mib.count), &level, &length, nil, 0) == 0 else { return .normal }
+        // Read in place: handing the array itself to `sysctl` as mutable would copy it on every sample.
+        let read = pressureMIB.withUnsafeBufferPointer { mib in
+            guard let name = mib.baseAddress, !mib.isEmpty else { return false }
+            return sysctl(UnsafeMutablePointer(mutating: name), UInt32(mib.count), &level, &length, nil, 0) == 0
+        }
+        guard read else { return .normal }
         switch level {
         case 4: return .critical
         case 2: return .warning
