@@ -336,6 +336,8 @@ final class DisplayWallpaper {
         // Giving way to a picture that is not this video's first frame would show something else entirely, which black
         // never does.
         if kind.revealsFirstFrame, !isFirstFrameUnder { kind = .fadeToBlack }
+        // The boundary came as early as the chosen transition asked; black stands in for it darkest at the loop itself.
+        let delay = max(0, transition.lead(forLength: length) - kind.lead(forLength: length))
         isInTransition = true
         #if TWEAKLY_AUTOMATION
             transitionsShown += 1
@@ -352,7 +354,7 @@ final class DisplayWallpaper {
             blink.values = [0, 1, 0]
             blink.keyTimes = [0, 0.5, 1]
             blink.timingFunctions = [Self.ease, Self.ease]
-            add(blink, to: blackLayer, at: begin, for: length)
+            add(blink, to: blackLayer, at: begin + delay, for: length)
         } else {
             reveal(kind, length: length, from: begin)
         }
