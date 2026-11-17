@@ -13,8 +13,6 @@ import os
 struct MixerOptions {
     var showsInput: Bool
     var boosts: Bool
-    /// Apps heard since they started, shown while silent, see `AudioSessions`.
-    var heard: Set<String> = []
 }
 
 /// Shows the mixer's popover beneath its item and releases all of it when it closes, as the stats popovers do.
@@ -435,7 +433,7 @@ final class MixerViewController: NSViewController {
         ruledApps = ruled
         let apps = self.apps ?? []
         listenToPlaying(apps)
-        let shown = AudioAppGrouping.shown(apps, ruled: ruled, heard: options.heard, alreadyShown: shownApps)
+        let shown = AudioAppGrouping.shown(apps, ruled: ruled, alreadyShown: shownApps)
         shownApps = shown.map(\.id)
         let highest = AudioRuleBook.highestVolume(boosting: options.boosts)
         var rows: [MixerAppRow] = []

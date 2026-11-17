@@ -24,11 +24,14 @@ public struct AudioOwner: Hashable, Sendable {
     public var name: String
     /// The app's own process, for its icon.
     public var pid: Int32
+    /// An app with a Dock icon, as opposed to a background agent or a daemon.
+    public var isApp: Bool
 
-    public init(bundleID: String, name: String, pid: Int32) {
+    public init(bundleID: String, name: String, pid: Int32, isApp: Bool = false) {
         self.bundleID = bundleID
         self.name = name
         self.pid = pid
+        self.isApp = isApp
     }
 }
 
@@ -76,16 +79,19 @@ public enum AudioAppGrouping {
         return order.compactMap { byApp[$0] }
     }
 
+    /// Part of the system rather than an app someone opened: always running, and connected to the sound server for
+    /// its own short sounds, such as emptying the Trash. Shown only while it plays.
+    public static let systemApps: Set<String> = ["com.apple.finder"]
+
     /// The rows the popover shows, as the Windows mixer shows every app with a sound session, playing or not: apps
-    /// playing now, apps heard since they started (`AudioSessions`), so a volume can be set before they play again,
+    /// playing now, apps with a Dock icon connected to the sound server, so a volume can be set before they play,
     /// apps with a rule of their own, and apps it showed already while open, so that a row never jumps away under the
-    /// pointer. An app that only connected to the sound server, as Finder always does, shows only once it plays. Kept
-    /// in the order they first appeared, the new ones playing first.
-    public static func shown(
-        _ apps: [MixerApp], ruled: Set<String>, heard: Set<String> = [], alreadyShown: [String]
-    ) -> [MixerApp] {
+    /// pointer. A background agent or daemon, and Finder, show only while they play. Kept in the order they first
+    /// appeared, the new ones playing first.
+    public static func shown(_ apps: [MixerApp], ruled: Set<String>, alreadyShown: [String]) -> [MixerApp] {
         let wanted = apps.filter {
-            $0.isPlaying || heard.contains($0.id) || ruled.contains($0.id) || alreadyShown.contains($0.id)
+            $0.isPlaying || $0.owner.isApp && !systemApps.contains($0.id) || ruled.contains($0.id)
+                || alreadyShown.contains($0.id)
         }
         let known = wanted.filter { alreadyShown.contains($0.id) }.sorted {
             (alreadyShown.firstIndex(of: $0.id) ?? 0) < (alreadyShown.firstIndex(of: $1.id) ?? 0)

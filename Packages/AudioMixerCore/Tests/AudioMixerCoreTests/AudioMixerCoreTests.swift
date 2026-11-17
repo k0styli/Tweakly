@@ -137,18 +137,27 @@ import Testing
 }
 
 @Suite struct ShownAppsTests {
-    private func app(_ id: String, playing: Bool) -> MixerApp {
-        MixerApp(owner: AudioOwner(bundleID: id, name: id, pid: 1), objectIDs: [1], isPlaying: playing)
+    private func app(_ id: String, playing: Bool, isApp: Bool = true) -> MixerApp {
+        MixerApp(owner: AudioOwner(bundleID: id, name: id, pid: 1, isApp: isApp), objectIDs: [1], isPlaying: playing)
     }
 
-    @Test func appsHeardSinceTheyStartedStayAsSessionsDoInWindows() {
+    @Test func appsWithADockIconShowBeforeTheyPlayAsInWindows() {
         let apps = [
-            app("Telegram", playing: false), app("Finder", playing: false), app("Safari", playing: true),
-            app("PowerChime", playing: true),
+            app("Telegram", playing: false), app("corespeechd", playing: false, isApp: false),
+            app("Safari", playing: true), app("PowerChime", playing: true, isApp: false),
         ]
-        let shown = AudioAppGrouping.shown(apps, ruled: [], heard: ["Telegram", "Safari"], alreadyShown: []).map(\.id)
-        // Playing first, then the silent app heard before; Finder, connected but never heard, not at all.
+        let shown = AudioAppGrouping.shown(apps, ruled: [], alreadyShown: []).map(\.id)
+        // Playing first, then the silent apps; a silent daemon not at all.
         #expect(shown == ["PowerChime", "Safari", "Telegram"])
+    }
+
+    @Test func finderShowsOnlyWhilePlayingOrWithARule() {
+        let finder = "com.apple.finder"
+        #expect(AudioAppGrouping.shown([app(finder, playing: false)], ruled: [], alreadyShown: []).isEmpty)
+        #expect(AudioAppGrouping.shown([app(finder, playing: true)], ruled: [], alreadyShown: []).map(\.id) == [finder])
+        #expect(AudioAppGrouping.shown([app(finder, playing: false)], ruled: [finder], alreadyShown: []).count == 1)
+        // Gone quiet while the popover is open, it keeps its row until the popover closes.
+        #expect(AudioAppGrouping.shown([app(finder, playing: false)], ruled: [], alreadyShown: [finder]).count == 1)
     }
 }
 

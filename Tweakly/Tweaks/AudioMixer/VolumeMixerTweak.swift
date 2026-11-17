@@ -32,16 +32,10 @@ final class VolumeMixerTweak {
     private var options = MixerOptions(showsInput: true, boosts: false)
     /// Only while the person asked for a rule about devices.
     private(set) var deviceRules: AudioDeviceRules?
-    /// The apps heard since they started, which the popover lists while they are silent.
-    private let sessions = AudioSessions()
 
     init(statusMenu: AppStatusMenu) {
         self.statusMenu = statusMenu
-        presenter.options = { [weak self] in
-            var options = self?.options ?? MixerOptions(showsInput: true, boosts: false)
-            options.heard = self?.sessions.heardApps ?? []
-            return options
-        }
+        presenter.options = { [weak self] in self?.options ?? MixerOptions(showsInput: true, boosts: false) }
         item.onOpen = { [weak self] in self.map { $0.presenter.show(for: $0.item) } }
         item.onToggle = { [weak self] in self.map { $0.presenter.toggle(for: $0.item) } }
         item.onDismiss = { [weak self] in self?.presenter.close() }
@@ -104,7 +98,6 @@ final class VolumeMixerTweak {
         eventTokens = []
         deviceRules?.stop()
         deviceRules = nil
-        sessions.stop()
         stopProcess()
     }
 
