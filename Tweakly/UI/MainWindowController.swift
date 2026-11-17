@@ -16,6 +16,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     let taskManager = TaskManagerModel()
     let uninstaller = UninstallerModel()
     let wallpapers = WallpaperLibraryModel()
+    let batteries = BatteryHealthModel()
     private let access = SystemAccess()
     private let onClose: () -> Void
     /// Every way the window comes back goes through `show`, so the process knows it is open again.
@@ -35,7 +36,8 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         let host = NSHostingController(
             rootView: MainView(
                 router: router, settings: settings, data: feed.data, cleaning: keyboardCleaning,
-                taskManager: taskManager, uninstaller: uninstaller, wallpapers: wallpapers, access: access))
+                taskManager: taskManager, uninstaller: uninstaller, wallpapers: wallpapers, batteries: batteries,
+                access: access))
         host.sceneBridgingOptions = [.title, .toolbars]
         // The window's size belongs to the person using it, not to the size of the current page.
         host.sizingOptions = []
@@ -340,6 +342,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         feed.setVisible(false)
         taskManager.setVisible(false)
         uninstaller.setVisible(false)
+        batteries.update(windowVisible: false, page: .home)
         // The pages' permission checks stop with it, while the process may stay on for a download.
         router.isWindowVisible = false
         onClose()
@@ -353,6 +356,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
         let showsTaskManager = isVisible && router.page == .taskManager
         taskManager.setVisible(showsTaskManager)
         uninstaller.setVisible(isVisible && router.page == .uninstaller)
+        batteries.update(windowVisible: isVisible, page: router.page)
     }
 }
 

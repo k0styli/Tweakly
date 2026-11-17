@@ -22,6 +22,7 @@
 		7A0000000000000000000050 /* AudioMixerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000051 /* AudioMixerCore */; };
 		7A0000000000000000000060 /* MouseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000061 /* MouseCore */; };
 		7A0000000000000000000090 /* UninstallerCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0000000000000000000091 /* UninstallerCore */; };
+		7A00000000000000000000A0 /* BatteryHealthCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A00000000000000000000A1 /* BatteryHealthCore */; };
 		7A0000000000000000000043 /* TweaklyMediaCleaner.xpc in Embed XPC Services */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000044 /* TweaklyMediaCleaner.xpc */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7A0000000000000000000079 /* TweaklyFinderMenu.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000070 /* TweaklyFinderMenu.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7A000000000000000000007F /* FinderMenuCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A000000000000000000007E /* FinderMenuCore */; };
@@ -135,6 +136,7 @@
 				7A0000000000000000000060 /* MouseCore in Frameworks */,
 				7A0000000000000000000090 /* UninstallerCore in Frameworks */,
 				7A0000000000000000000081 /* FinderMenuCore in Frameworks */,
+				7A00000000000000000000A0 /* BatteryHealthCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,6 +228,7 @@
 				7A0000000000000000000061 /* MouseCore */,
 				7A0000000000000000000091 /* UninstallerCore */,
 				7A0000000000000000000080 /* FinderMenuCore */,
+				7A00000000000000000000A1 /* BatteryHealthCore */,
 			);
 			productName = Tweakly;
 			productReference = 7A0000000000000000000001 /* Tweakly.app */;
@@ -349,6 +352,7 @@
 				7A0000000000000000000062 /* XCLocalSwiftPackageReference "Packages/MouseCore" */,
 				7A000000000000000000007D /* XCLocalSwiftPackageReference "Packages/FinderMenuCore" */,
 				7A0000000000000000000092 /* XCLocalSwiftPackageReference "Packages/UninstallerCore" */,
+				7A00000000000000000000A2 /* XCLocalSwiftPackageReference "Packages/BatteryHealthCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7A0000000000000000000005 /* Products */;
@@ -756,6 +760,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/UninstallerCore;
 		};
+		7A00000000000000000000A2 /* XCLocalSwiftPackageReference "Packages/BatteryHealthCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/BatteryHealthCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -822,6 +830,10 @@
 		7A0000000000000000000091 /* UninstallerCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = UninstallerCore;
+		};
+		7A00000000000000000000A1 /* BatteryHealthCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BatteryHealthCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

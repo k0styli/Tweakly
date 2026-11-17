@@ -18,6 +18,9 @@ enum MainPage: Hashable, Identifiable {
     case taskManager
     case uninstaller
     case volumeMixer
+    case batteryHealth
+    /// One device's page under Battery Health, by its archive identifier.
+    case batteryDevice(String)
     case settings
     case permissions
     case about
@@ -39,10 +42,15 @@ enum MainPage: Hashable, Identifiable {
             case "taskManager": self = .taskManager
             case "uninstaller": self = .uninstaller
             case "volumeMixer": self = .volumeMixer
+            case "batteryHealth": self = .batteryHealth
             case "settings": self = .settings
             case "permissions": self = .permissions
             case "about": self = .about
             default:
+                if rawValue.hasPrefix("batteryDevice:") {
+                    self = .batteryDevice(String(rawValue.dropFirst("batteryDevice:".count)))
+                    return
+                }
                 guard let kind = MetricKind(rawValue: rawValue) else { return nil }
                 self = .metric(kind)
             }
@@ -65,6 +73,8 @@ enum MainPage: Hashable, Identifiable {
         case .taskManager: "taskManager"
         case .uninstaller: "uninstaller"
         case .volumeMixer: "volumeMixer"
+        case .batteryHealth: "batteryHealth"
+        case .batteryDevice(let id): "batteryDevice:" + id
         case .settings: "settings"
         case .permissions: "permissions"
         case .about: "about"
@@ -87,6 +97,7 @@ enum MainPage: Hashable, Identifiable {
         case .taskManager: String(localized: "Task Manager")
         case .uninstaller: String(localized: "App Uninstaller")
         case .volumeMixer: String(localized: "Volume Mixer")
+        case .batteryHealth, .batteryDevice: String(localized: "Battery Health")
         case .settings: String(localized: "Settings")
         case .permissions: String(localized: "Permissions")
         case .about: String(localized: "About")
@@ -109,6 +120,7 @@ enum MainPage: Hashable, Identifiable {
         case .taskManager: "waveform.path.ecg.rectangle"
         case .uninstaller: "trash"
         case .volumeMixer: "slider.vertical.3"
+        case .batteryHealth, .batteryDevice: "minus.plus.batteryblock"
         case .settings: "gearshape"
         case .permissions: "hand.raised"
         case .about: "info.circle"
@@ -225,6 +237,16 @@ enum MainPage: Hashable, Identifiable {
                 String(localized: "Choose Devices in Order"), String(localized: "Device Order"),
                 String(localized: "Devices"), "AirPods", "Bluetooth", "EQ",
             ]
+        case .batteryHealth, .batteryDevice:
+            [
+                String(localized: "Battery"), String(localized: "Maximum Capacity"),
+                String(localized: "Cycle Count"), String(localized: "Battery Condition"),
+                String(localized: "Manufacture Date"), String(localized: "Power Adapter"),
+                String(localized: "Battery Temperature"), String(localized: "Charge", comment: "Battery charge level"),
+                String(localized: "Design Capacity"), String(localized: "Full Charge Capacity"), "mAh",
+                "iPhone", "iPad", "Apple Watch", "AirPods", "Magic Mouse", "Magic Keyboard", "Magic Trackpad", "UPS",
+                "coconutBattery",
+            ]
         case .settings:
             [
                 String(localized: "Open at Login"), String(localized: "Show Tweakly Icon in Menu Bar"),
@@ -244,6 +266,12 @@ enum MainPage: Hashable, Identifiable {
         case .about:
             ["Tweakly", String(localized: "Version"), String(localized: "Build"), String(localized: "Quit Tweakly")]
         }
+    }
+
+    /// The page whose row stays selected in the sidebar: a device's page belongs to Battery Health.
+    var sidebarPage: MainPage {
+        if case .batteryDevice = self { return .batteryHealth }
+        return self
     }
 
     func matches(_ query: String) -> Bool {
@@ -313,6 +341,7 @@ struct MainView: View {
     let taskManager: TaskManagerModel
     let uninstaller: UninstallerModel
     let wallpapers: WallpaperLibraryModel
+    let batteries: BatteryHealthModel
     let access: SystemAccess
 
     var body: some View {
@@ -356,6 +385,11 @@ struct MainView: View {
                     settings: settings, library: wallpapers, searchRequests: router.toolbarSearchRequests)
             case .volumeMixer:
                 VolumeMixerPageView(settings: settings)
+            case .batteryHealth:
+                BatteryHealthPageView(model: batteries)
+            case .batteryDevice(let id):
+                BatteryDevicePageView(model: batteries, id: id)
+                    .id(id)
             case .taskManager:
                 TaskManagerPageView(
                     model: taskManager, settings: settings, searchRequests: router.toolbarSearchRequests)
@@ -371,7 +405,7 @@ struct MainView: View {
                 AboutView()
             }
         }
-        .navigationTitle(router.page.title)
+        .navigationTitle(title)
         .environment(access)
         .environment(router)
         .sheet(isPresented: $router.isWelcomeShown) {
@@ -398,6 +432,16 @@ struct MainView: View {
     }
 }
 
+extension MainView {
+    /// A device's page is titled with the device, as an app's page in Notifications is.
+    private var title: String {
+        if case .batteryDevice(let id) = router.page, let device = batteries.archive[id] {
+            return BatteryText.title(of: device)
+        }
+        return router.page.title
+    }
+}
+
 private struct Sidebar: View {
     /// A group of pages under a heading.
     private struct PageGroup {
@@ -415,7 +459,7 @@ private struct Sidebar: View {
                 pages: [.liveWallpaper]),
             PageGroup(
                 title: String(localized: "Utilities", comment: "Sidebar heading, as the Utilities folder of macOS"),
-                pages: [.taskManager, .uninstaller, .volumeMixer, .keyboardCleaning]),
+                pages: [.taskManager, .batteryHealth, .uninstaller, .volumeMixer, .keyboardCleaning]),
             PageGroup(
                 title: String(localized: "Statistics"),
                 pages: [.simpleView] + MetricKind.available.map(MainPage.metric)),
@@ -476,8 +520,8 @@ private struct Sidebar: View {
     /// A sidebar selection can be cleared by the list, but a page must always be showing.
     private var selection: Binding<MainPage?> {
         Binding(
-            get: { router.page },
-            set: { if let page = $0 { router.open(page) } }
+            get: { router.page.sidebarPage },
+            set: { if let page = $0, page != router.page.sidebarPage { router.open(page) } }
         )
     }
 }
