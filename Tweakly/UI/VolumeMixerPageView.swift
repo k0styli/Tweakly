@@ -11,6 +11,7 @@ struct VolumeMixerPageView: View {
     @Bindable var settings: AppSettings
     @Environment(SystemAccess.self) private var access
     @Environment(MainRouter.self) private var router
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var rules = AudioRuleStore.load()
     /// Every app shown since the page appeared. An app dragged to 100 % loses its rule, and its group must not vanish
     /// from under the pointer.
@@ -37,7 +38,7 @@ struct VolumeMixerPageView: View {
             form
                 .onChange(of: requested) { _, target in
                     guard let target else { return }
-                    withAnimation { scroller.scrollTo(target, anchor: .top) }
+                    withAnimation(reduceMotion ? nil : .default) { scroller.scrollTo(target, anchor: .top) }
                     requested = nil
                 }
         }
@@ -284,9 +285,9 @@ struct VolumeMixerPageView: View {
                 detail: Text("What the Mac uses as headphones, speakers and microphones come and go."))
         }
         .sectionActions {
-            if settings.volumeMixerOrdersDevices {
-                Button("Device Order…") { isOrdering = true }
-            }
+            // Greyed rather than hidden while devices are not chosen in order, as System Settings does.
+            Button("Device Order…") { isOrdering = true }
+                .disabled(!settings.volumeMixerOrdersDevices)
         }
     }
 

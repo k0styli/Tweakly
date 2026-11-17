@@ -179,8 +179,8 @@ struct EqualizerRows: View {
 struct EqualizerCurve: View {
     let settings: EqualizerSettings
     let change: (EqualizerSettings) -> Void
-    /// The band being dragged, its gain and the height where the drag began.
-    @State private var grabbed: (band: Int, gain: Double, y: CGFloat)?
+    /// The band being dragged, its gain and where the drag began.
+    @State private var grabbed: (band: Int, gain: Double, start: CGPoint)?
     @State private var isAtZero = false
     /// Where each band's point lies, for VoiceOver to outline the point it reads.
     @State private var bandFrames: [CGRect] = []
@@ -306,15 +306,17 @@ struct EqualizerCurve: View {
             .onChanged { drag in
                 guard let plot = proxy.plotFrame else { return }
                 let origin = geometry[plot].origin
-                if grabbed == nil {
+                // A drag begun elsewhere is a new one, even if the last one ended without saying so, as a cancelled
+                // gesture does.
+                if grabbed?.start != drag.startLocation {
                     guard let band = nearestBand(at: drag.startLocation.x, proxy: proxy, geometry: geometry) else {
                         return
                     }
-                    grabbed = (band, settings.bands[band], drag.startLocation.y)
+                    grabbed = (band, settings.bands[band], drag.startLocation)
                     isAtZero = settings.bands[band] == 0
                 }
                 guard let grabbed,
-                    let start: Double = proxy.value(atY: grabbed.y - origin.y),
+                    let start: Double = proxy.value(atY: grabbed.start.y - origin.y),
                     let now: Double = proxy.value(atY: drag.location.y - origin.y)
                 else { return }
                 let gain = EqualizerSettings.draggedGain(from: grabbed.gain, by: now - start)
@@ -432,7 +434,6 @@ struct DeviceOrderSheet: View {
                 Button("Forget This Device") { forget(device) }
             }
         }
-        .accessibilityValue(isConnected ? Text(verbatim: "") : Text("Not Connected"))
         .accessibilityAction(named: Text("Move Up")) { move(index, by: -1) }
         .accessibilityAction(named: Text("Move Down")) { move(index, by: 1) }
     }
