@@ -113,6 +113,8 @@ public final class TapMixer: @unchecked Sendable {
         // An equalizer raising something, and one at work at all.
         var isEqualizing = false
         var isFiltering = false
+        // Whether anything at all reaches the output this cycle.
+        var hasSound = false
         for tap in 0..<gains.count {
             let index = firstTap + tap
             guard index >= 0, index < inputs.count, let data = inputs[index].mData else { continue }
@@ -121,10 +123,17 @@ public final class TapMixer: @unchecked Sendable {
             let source = data.assumingMemoryBound(to: Float.self)
             let target = gains.get(tap)
             let highest = max(ramps[tap].current, target)
-            totalGain += highest
-            if highest > 1 { isBoosted = true }
             let (first, step) = ramps[tap].begin(towards: target, frames: count)
             let equalizer = equalizers[tap]
+            // Silence adds nothing to the sum: an app gone quiet, or an output with nothing else on it, costs this one
+            // look once its equalizer has rung out.
+            if Self.isSilent(source, samples: count * channels), equalizer.isSettled || !equalizer.hasWork {
+                if equalizer.hasWork { equalizer.passSilence(frames: count) }
+                continue
+            }
+            hasSound = true
+            totalGain += highest
+            if highest > 1 { isBoosted = true }
             // Most taps have no equalizer of their own, the output's whole sound above all: straight into the sum.
             // One that has is run in the same pass, frame by frame, with nothing copied aside.
             let equalizes = equalizer.hasWork && equalizer.beginCycle(frames: count)
@@ -152,12 +161,17 @@ public final class TapMixer: @unchecked Sendable {
             }
         }
         if outputEqualizer.hasWork {
-            outputEqualizer.process(
-                left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
-                frames: frames)
-            if !outputEqualizer.isBypassed {
-                isFiltering = true
-                if outputEqualizer.mayRaise { isEqualizing = true }
+            if !hasSound, outputEqualizer.isSettled {
+                outputEqualizer.passSilence(frames: frames)
+            } else {
+                outputEqualizer.process(
+                    left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
+                    frames: frames)
+                if !outputEqualizer.isBypassed {
+                    hasSound = true
+                    isFiltering = true
+                    if outputEqualizer.mayRaise { isEqualizing = true }
+                }
             }
         }
         // Raised sound bends from 0.9 up. Sound an equalizer only cuts, and sources added up at their own volume, are
@@ -165,7 +179,7 @@ public final class TapMixer: @unchecked Sendable {
         let knee: Float? =
             isBoosted || isEqualizing
             ? SoftLimiter.knee : isFiltering || totalGain > 1 ? SoftLimiter.cutKnee : nil
-        if let knee {
+        if let knee, hasSound {
             for frame in 0..<frames {
                 left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride], knee: knee)
                 if let right {
@@ -182,5 +196,11 @@ public final class TapMixer: @unchecked Sendable {
         // Held for a moment and let fall slowly, as a level meter would.
         inputPeak = max(peakIn, inputPeak * 0.95)
         outputPeak = max(peakOut, outputPeak * 0.95)
+    }
+
+    @inline(__always)
+    private static func isSilent(_ samples: UnsafeMutablePointer<Float>, samples count: Int) -> Bool {
+        for index in 0..<count where samples[index] != 0 { return false }
+        return true
     }
 }

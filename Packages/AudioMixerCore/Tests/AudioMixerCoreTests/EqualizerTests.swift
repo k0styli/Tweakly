@@ -423,6 +423,50 @@ private func measuredGain(
         #expect(value < 1 && value > SoftLimiter.cutKnee)
     }
 
+    @Test func silenceCostsNothingOnceTheBandsHaveRungOut() {
+        // A 40 Hz tone through the 32 Hz band at +12 dB, then silence: what the band holds still sounds at first, and
+        // once it has died away nothing is filtered and silence comes out exactly.
+        let mixer = TapMixer(gains: [1])
+        mixer.equalizers[0].set(EqualizerSettings(bands: [12, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
+        mixer.outputEqualizer.set(EqualizerPreset.builtIn("bassReducer")!.settings)
+        var phase = 0.0
+        func cycle(silent: Bool) -> [Float] {
+            var tap = [Float](repeating: 0, count: 1024)
+            if !silent {
+                for frame in 0..<512 {
+                    let value = Float(0.2 * sin(phase))
+                    tap[frame * 2] = value
+                    tap[frame * 2 + 1] = value
+                    phase += 2 * Double.pi * 40 / 48_000
+                }
+            }
+            var out = [Float](repeating: 0, count: 1024)
+            tap.withUnsafeMutableBytes { tapBytes in
+                out.withUnsafeMutableBytes { outBytes in
+                    var input = AudioBufferList(
+                        mNumberBuffers: 1,
+                        mBuffers: AudioBuffer(
+                            mNumberChannels: 2, mDataByteSize: UInt32(tapBytes.count), mData: tapBytes.baseAddress))
+                    var output = AudioBufferList(
+                        mNumberBuffers: 1,
+                        mBuffers: AudioBuffer(
+                            mNumberChannels: 2, mDataByteSize: UInt32(outBytes.count), mData: outBytes.baseAddress))
+                    mixer.render(input: &input, output: &output)
+                }
+            }
+            return out
+        }
+        for _ in 0..<100 { _ = cycle(silent: false) }
+        let ringing = cycle(silent: true)
+        #expect(ringing.contains { $0 != 0 }, "the band's memory still sounds")
+        for _ in 0..<200 { _ = cycle(silent: true) }
+        #expect(mixer.equalizers[0].isSettled && mixer.outputEqualizer.isSettled)
+        #expect(cycle(silent: true).allSatisfy { $0 == 0 })
+        // Sound coming back is filtered again from the first frame.
+        let back = cycle(silent: false)
+        #expect(back.contains { $0 != 0 })
+    }
+
     @Test func aRaisedSoundIsKeptFromClipping() {
         let mixer = TapMixer(gains: [1])
         mixer.outputEqualizer.set(EqualizerSettings(preamp: 12))

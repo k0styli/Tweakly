@@ -241,6 +241,7 @@ public final class EqualizerProcessor: @unchecked Sendable {
     /// Puts the bands' memory back, clears what is not a number, and lets a band back at 0 dB stop once what it holds
     /// has died away.
     func endCycle(frames: Int) {
+        var settled = true
         for index in 0..<activeCount {
             let band = active[index]
             let held = (packed1[index], packed2[index])
@@ -248,15 +249,29 @@ public final class EqualizerProcessor: @unchecked Sendable {
             memory2[band] = held.1
             if !(held.0.x.isFinite && held.0.y.isFinite && held.1.x.isFinite && held.1.y.isFinite) {
                 clearMemory(of: band)
+                continue
             }
+            let loudest = max(abs(held.0.x), abs(held.0.y), abs(held.1.x), abs(held.1.y))
+            if loudest >= Self.silentMemory { settled = false }
             guard gains[band] == 0 else { continue }
             tails[band] -= frames
-            let loudest = max(abs(held.0.x), abs(held.0.y), abs(held.1.x), abs(held.1.y))
             if loudest < Self.silentMemory || tails[band] <= 0 {
                 tails[band] = 0
                 clearMemory(of: band)
             }
         }
+        isSettled = settled
+    }
+
+    /// A cycle of silence in, once what the bands hold has died away (`isSettled`): silence comes out, so nothing is
+    /// filtered, while the gains go on gliding and what is left in the bands, far below hearing, is let go.
+    public func passSilence(frames: Int) {
+        guard beginCycle(frames: frames) else { return }
+        for index in 0..<activeCount {
+            packed1[index] = .zero
+            packed2[index] = .zero
+        }
+        endCycle(frames: frames)
     }
 
     private func takeNewSettings() {
