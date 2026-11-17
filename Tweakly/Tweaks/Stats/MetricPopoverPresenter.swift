@@ -44,7 +44,10 @@ final class MetricPopoverPresenter {
         close()
         let shown = item.popover
         let controller = MetricDetailViewController(popover: shown, fanActions: fanActions)
-        controller.onEndProcess = { [weak self] entry in self?.askToEnd(entry) }
+        // The GPU's and the network's lists count only the processes using them, while an app asked to quit ends all
+        // of its own: the question does not give a number it cannot know.
+        let countsEveryProcess = shown != .details(.gpu) && shown != .details(.network)
+        controller.onEndProcess = { [weak self] entry in self?.askToEnd(entry, countsEveryProcess: countsEveryProcess) }
         // Set first: macOS 27 may begin the item's session, and ask for this again, while the popover appears.
         current = shown
         // The controller keeps its preferred size up to date, which the popover follows by itself.
@@ -76,10 +79,12 @@ final class MetricPopoverPresenter {
 
     /// The task manager's question, in a window of its own: the popover closes first, as it would at any click outside
     /// it, and the window stays up however long the person takes to answer.
-    private func askToEnd(_ entry: ProcessEntry) {
+    private func askToEnd(_ entry: ProcessEntry, countsEveryProcess: Bool) {
         close()
         endQuestion?.close()
-        let question = EndProcessQuestion(entry: entry) { [weak self] in self?.endQuestion = nil }
+        let question = EndProcessQuestion(entry: entry, countsEveryProcess: countsEveryProcess) { [weak self] in
+            self?.endQuestion = nil
+        }
         endQuestion = question
         question.show()
     }
@@ -104,15 +109,17 @@ private final class EndProcessQuestion: NSObject {
     private let onClose: () -> Void
     private var resignObserver: NSObjectProtocol?
 
-    init(entry: ProcessEntry, onClose: @escaping () -> Void) {
+    init(entry: ProcessEntry, countsEveryProcess: Bool, onClose: @escaping () -> Void) {
         self.entry = entry
         self.onClose = onClose
         // A row that can be ended is the person's app, which quits by its own command, or the person's own processes, so
         // nothing of another user's gets a signal from here.
         // loginwindow is the person's own process and an app of its own, and ending it logs them out.
         let logsOut = ["WindowServer", "loginwindow"].contains(entry.name)
+        let isAppRow = entry.bundlePath != nil
         alert = ProcessActions.question(
-            name: entry.name, processCount: entry.processCount, logsOut: logsOut, isSystem: false, force: false)
+            name: entry.name, processCount: countsEveryProcess || !isAppRow ? entry.processCount : 1, logsOut: logsOut,
+            isSystem: false, force: false)
         super.init()
         let actions: [Selector] = [#selector(endTask), #selector(forceQuit), #selector(close)]
         for (button, action) in zip(alert.buttons, actions) {
