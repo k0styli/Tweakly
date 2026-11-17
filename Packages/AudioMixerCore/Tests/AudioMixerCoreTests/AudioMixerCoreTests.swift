@@ -396,6 +396,21 @@ import Testing
         #expect(output.samples(0).allSatisfy { abs($0 - SoftLimiter.limit(1.2)) < 1e-6 && $0 < 1 })
     }
 
+    @Test func sourcesAtTheirOwnVolumeAddUpWithLoudPeaksLeftAlone() {
+        // An app at its own volume and the rest of an output with an equalizer: a loudly mastered song through one of
+        // them keeps its peaks, as it would without the mixer.
+        let mixer = TapMixer(gains: [0.8, 1])
+        let song = Buffers([(2, 2), (2, 2)]) { buffer, _ in buffer == 0 ? 0 : 0.97 }
+        let output = Buffers([(2, 2)])
+        song.render(mixer, into: output)
+        #expect(output.samples(0).allSatisfy { $0 == 0.97 })
+        // Both loud at once pass full scale, which is caught softly from 0.98 rather than clipped by the output.
+        let both = Buffers([(2, 2), (2, 2)]) { _, _ in 0.75 }
+        let caught = Buffers([(2, 2)])
+        both.render(mixer, into: caught)
+        #expect(caught.samples(0).allSatisfy { $0 <= 1 && $0 > SoftLimiter.cutKnee })
+    }
+
     @Test func aNewGainArrivesAcrossOneBufferWithoutAJump() {
         let mixer = TapMixer(gains: [0])
         mixer.gains.set(0, 1)

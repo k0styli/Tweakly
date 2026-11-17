@@ -103,10 +103,13 @@ public final class TapMixer: @unchecked Sendable {
         let inputs = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
         let firstTap = inputs.count - gains.count
         var peakIn: Float = 0
-        // The loudest the sum can be against its sources: at most one app at most at full volume needs no limiter,
-        // which would only bend the peaks of a loudly mastered song. An equalizer raising a band or its preamp may
-        // push anything past full scale, so with one doing so the limiter watches from its usual knee.
+        // The loudest the sum can be against its sources. One source at most at its own volume needs no limiter, which
+        // would only bend the peaks of a loudly mastered song. Several of them, an app and the rest of an output with
+        // an equalizer say, add up as they would without this process, so only what passes full scale is caught. A
+        // boosted app, or an equalizer raising a band or its preamp, may push anything past it, so the limiter then
+        // watches from its usual knee.
         var totalGain: Float = 0
+        var isBoosted = false
         // An equalizer raising something, and one at work at all.
         var isEqualizing = false
         var isFiltering = false
@@ -117,7 +120,9 @@ public final class TapMixer: @unchecked Sendable {
             let count = min(frames, Int(inputs[index].mDataByteSize) / (MemoryLayout<Float>.size * channels))
             let source = data.assumingMemoryBound(to: Float.self)
             let target = gains.get(tap)
-            totalGain += max(ramps[tap].current, target)
+            let highest = max(ramps[tap].current, target)
+            totalGain += highest
+            if highest > 1 { isBoosted = true }
             let (first, step) = ramps[tap].begin(towards: target, frames: count)
             let equalizer = equalizers[tap]
             // Most taps have no equalizer of their own, the output's whole sound above all: straight into the sum.
@@ -155,10 +160,11 @@ public final class TapMixer: @unchecked Sendable {
                 if outputEqualizer.mayRaise { isEqualizing = true }
             }
         }
-        // Raised sound bends from 0.9 up; sound an equalizer only cuts is left alone below 0.98, and only what its
-        // filters push past that is caught, rather than clipped hard by the output.
+        // Raised sound bends from 0.9 up. Sound an equalizer only cuts, and sources added up at their own volume, are
+        // left alone below 0.98, and only what passes that is caught, rather than clipped hard by the output.
         let knee: Float? =
-            totalGain > 1 || isEqualizing ? SoftLimiter.knee : isFiltering ? SoftLimiter.cutKnee : nil
+            isBoosted || isEqualizing
+            ? SoftLimiter.knee : isFiltering || totalGain > 1 ? SoftLimiter.cutKnee : nil
         if let knee {
             for frame in 0..<frames {
                 left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride], knee: knee)
