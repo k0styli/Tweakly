@@ -136,6 +136,21 @@ import Testing
         let outputs = AudioDeviceChoice.initial(connected: [speakers, airPods], current: "airpods", isInput: false)
         #expect(outputs.map(\.uid) == ["airpods", "speakers"])
     }
+
+    @Test func aVirtualDeviceComesAfterRealOnesSoHeadphonesGoingLeaveTheSpeakers() {
+        // A call app's virtual output listed first by Core Audio, then the speakers, with headphones in use.
+        let virtual = KnownAudioDevice(uid: "teams", name: "Call App Audio", kind: .virtual)
+        let order = AudioDeviceChoice.initial(
+            connected: [virtual, speakers, airPods], current: "airpods", isInput: false)
+        #expect(order.map(\.uid) == ["airpods", "speakers", "teams"])
+        let chosen = AudioDeviceChoice.choice(
+            connected: ["teams", "speakers"], current: "teams", settled: "airpods", arrived: [],
+            order: order.map(\.uid), manualOnly: [])
+        #expect(chosen == "speakers")
+        // One chosen by hand and in use stays first.
+        let own = AudioDeviceChoice.initial(connected: [speakers, virtual], current: "teams", isInput: false)
+        #expect(own.map(\.uid) == ["teams", "speakers"])
+    }
 }
 
 @Suite struct EqualizerPlanTests {

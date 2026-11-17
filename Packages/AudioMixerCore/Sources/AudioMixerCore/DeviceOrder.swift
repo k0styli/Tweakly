@@ -112,11 +112,14 @@ public enum AudioDeviceChoice {
         return result
     }
 
-    /// The order to start from: the devices there now, the one in use first, and a headset's microphone last.
+    /// The order to start from: the devices there now, the one in use first, then the others with virtual devices
+    /// after real ones, and a headset's microphone last. A virtual device, such as one a call app installs, is silent
+    /// unless something feeds it, so the speakers must come before it when headphones go.
     public static func initial(connected: [KnownAudioDevice], current: String?, isInput: Bool) -> [KnownAudioDevice] {
         let headset = { (device: KnownAudioDevice) in isInput && isHeadsetMicrophone(device.deviceKind) }
         let inUse = connected.filter { $0.uid == current && !headset($0) }
         let others = connected.filter { $0.uid != current && !headset($0) }
-        return inUse + others + connected.filter(headset)
+        return inUse + others.filter { $0.deviceKind != .virtual } + others.filter { $0.deviceKind == .virtual }
+            + connected.filter(headset)
     }
 }
