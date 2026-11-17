@@ -3,7 +3,7 @@ import Charts
 import SwiftUI
 import SystemMetrics
 
-/// One device's battery, everything on one page as the owner asked: its health and capacities, how health went over
+/// One device's battery, everything on one page rather than behind a sheet: its health and capacities, how health went over
 /// time, its charge, the power going through it while connected, the electrical figures, the gauge's record since the
 /// battery was made, and the device itself. A device that is not connected shows what was read last and when.
 struct BatteryDevicePageView: View {
@@ -147,7 +147,7 @@ private struct DeviceHeader: View {
                 Text(connection).foregroundStyle(.secondary)
             }
         } else {
-            // The owner asked that a device seen before says plainly that its data is old.
+            // A device seen before says plainly that its data is old.
             Label {
                 Text(
                     "Not Connected. Data from \(device.latest.date.formatted(date: .abbreviated, time: .shortened)).",

@@ -420,10 +420,10 @@ private enum Samples {
     }
 
     @Test func identityHidesTheRawIdentifier() {
-        let id = DeviceIdentity.id(kind: "ios", raw: "00008130-0000000000000000")
+        let id = DeviceIdentity.id(kind: "ios", raw: "TEST-DEVICE-0001")
         #expect(id.hasPrefix("ios:"))
         #expect(id.count == 4 + 24)
-        #expect(!id.contains("00008130"))
-        #expect(id == DeviceIdentity.id(kind: "ios", raw: "00008130-0000000000000000"))
+        #expect(!id.contains("TEST"))
+        #expect(id == DeviceIdentity.id(kind: "ios", raw: "TEST-DEVICE-0001"))
     }
 }
