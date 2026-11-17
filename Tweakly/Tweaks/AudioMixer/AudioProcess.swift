@@ -165,16 +165,6 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
         let now = Date.now
         // Only apps with a rule are ever taken, so only their silence is worth a wakeup when it lasts.
         let playing = Set(apps.filter { $0.isPlaying && !rules.rule(for: $0.id).isStandard }.map(\.id))
-        if !playing.subtracting(wasPlaying).isEmpty {
-            // An app starting to play is when a try that failed is worth making again, and when permission taken
-            // away from the taps that run would show.
-            engine.retryFailed()
-            engine.checkPermission()
-        }
-        lastPlayed = TapPlan.heard(lastPlayed: lastPlayed, wasPlaying: wasPlaying, playing: playing, now: now)
-        wasPlaying = playing
-        let active = TapPlan.active(lastPlayed: lastPlayed, playing: playing, now: now)
-        lastPlayed = lastPlayed.filter { active.contains($0.key) }
         released = released.filter { now.timeIntervalSince($0.value) < TapPlan.releaseHold }
         releasedOutputs = releasedOutputs.filter { now.timeIntervalSince($0.value) < TapPlan.releaseHold }
         // An output with an equalizer is taken while anything plays on it, and a while after, as an app is.
@@ -185,6 +175,20 @@ final class AudioAppDelegate: NSObject, NSApplicationDelegate {
             : TapPlan.playingOutputs(
                 clients: sound.clients, systemOutputUID: sound.systemOutput, ownPID: getpid()
             ).intersection(equalized)
+        if !playing.subtracting(wasPlaying).isEmpty || !outputsPlaying.subtracting(outputsWerePlaying).isEmpty {
+            // An app, or anything on an output with an equalizer, starting to play is when a try that failed is worth
+            // making again, and when permission taken away from the taps that run would show. While the system
+            // refuses, each try silences what it takes for a moment, so not more often than a moved slider tries.
+            if engine.isPermitted || now.timeIntervalSince(lastRefusedRetry) >= Self.refusedRetryInterval {
+                if !engine.isPermitted { lastRefusedRetry = now }
+                engine.retryFailed()
+            }
+            engine.checkPermission()
+        }
+        lastPlayed = TapPlan.heard(lastPlayed: lastPlayed, wasPlaying: wasPlaying, playing: playing, now: now)
+        wasPlaying = playing
+        let active = TapPlan.active(lastPlayed: lastPlayed, playing: playing, now: now)
+        lastPlayed = lastPlayed.filter { active.contains($0.key) }
         outputLastPlayed = TapPlan.heard(
             lastPlayed: outputLastPlayed, wasPlaying: outputsWerePlaying, playing: outputsPlaying, now: now)
         outputsWerePlaying = outputsPlaying
