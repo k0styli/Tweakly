@@ -309,6 +309,14 @@ private func measuredGain(
         #expect(abs(run(mixer, level: 0.95) - 0.95) < 0.0005)
     }
 
+    @Test func whatACutPushesPastFullScaleIsStillCaught() {
+        // A steady level of 1.0 through a cut: unchanged by the bands, it reaches the gentle knee and stays below 1.
+        let mixer = TapMixer(gains: [1])
+        mixer.outputEqualizer.set(EqualizerPreset.builtIn("bassReducer")!.settings)
+        let value = run(mixer, level: 1.05)
+        #expect(value < 1 && value > SoftLimiter.cutKnee)
+    }
+
     @Test func aRaisedSoundIsKeptFromClipping() {
         let mixer = TapMixer(gains: [1])
         mixer.outputEqualizer.set(EqualizerSettings(preamp: 12))

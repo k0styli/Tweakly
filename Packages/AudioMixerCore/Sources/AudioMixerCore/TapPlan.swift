@@ -154,9 +154,12 @@ public enum TapPlan {
 /// and never reaches past it.
 public enum SoftLimiter {
     public static let knee: Float = 0.9
+    /// For sound an equalizer only cuts: its filters shift phase, so a song mastered to full scale can still peak a
+    /// little past it, but anything below this passes untouched.
+    public static let cutKnee: Float = 0.98
 
     @inline(__always)
-    public static func limit(_ sample: Float) -> Float {
+    public static func limit(_ sample: Float, knee: Float = knee) -> Float {
         let size = abs(sample)
         // Nothing that is not a number reaches the speakers.
         guard size.isFinite else { return 0 }

@@ -27,7 +27,8 @@ final class TapEngine {
         for (output, runner) in running where wanted[output] == nil {
             runner.stop()
             running[output] = nil
-            Self.log.notice("Let go of the sound on \(Self.describe(output), privacy: .public)")
+            // Named as it was when taken: an output let go of has often just been disconnected.
+            Self.log.notice("Let go of the sound on \(runner.outputDescription, privacy: .public)")
         }
         failed = failed.filter { output, group in wanted[output]?.hasSameSound(as: group) == true }
         for group in groups {
@@ -53,7 +54,7 @@ final class TapEngine {
             } catch {
                 failed[group.outputUID] = group
                 Self.log.error(
-                    "Could not take the sound for \(group.outputUID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    "Could not take the sound on \(Self.describe(group.outputUID), privacy: .public): \(error.localizedDescription, privacy: .public)"
                 )
             }
         }
@@ -88,7 +89,7 @@ final class TapEngine {
     }
 
     /// An output as the log names it: its kind, never its name or UID, which can carry a person's or a device's.
-    private static func describe(_ uid: String) -> String {
+    fileprivate static func describe(_ uid: String) -> String {
         let kind = AudioSystem.devices(input: false).first { $0.uid == uid }?.kind.rawValue ?? "unknown"
         return "an output of kind \(kind)"
     }
@@ -108,12 +109,15 @@ private final class TapGroupRunner {
     private var aggregate: AudioHardwareAggregateDevice?
     private var procID: AudioDeviceIOProcID?
     private let mixer: TapMixer
+    /// The output's kind as the log names it, kept from when it was taken.
+    let outputDescription: String
     /// The output's rate can change while it runs, a Bluetooth headset going over to a call say, and every filter is
     /// drawn for a rate.
     private let rateListener = AudioListener()
 
     init(_ group: TapGroup) throws {
         self.group = group
+        outputDescription = TapEngine.describe(group.outputUID)
         let system = AudioHardwareSystem.shared
         guard let output = AudioSystem.device(withUID: group.outputUID) else {
             throw AudioHardwareError(kAudioHardwareBadDeviceError)

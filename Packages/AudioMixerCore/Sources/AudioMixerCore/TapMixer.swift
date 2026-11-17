@@ -105,9 +105,11 @@ public final class TapMixer: @unchecked Sendable {
         var peakIn: Float = 0
         // The loudest the sum can be against its sources: at most one app at most at full volume needs no limiter,
         // which would only bend the peaks of a loudly mastered song. An equalizer raising a band or its preamp may
-        // push anything past full scale, so with one doing so the limiter watches; one that only cuts does not.
+        // push anything past full scale, so with one doing so the limiter watches from its usual knee.
         var totalGain: Float = 0
+        // An equalizer raising something, and one at work at all.
         var isEqualizing = false
+        var isFiltering = false
         for tap in 0..<gains.count {
             let index = firstTap + tap
             guard index >= 0, index < inputs.count, let data = inputs[index].mData else { continue }
@@ -140,6 +142,7 @@ public final class TapMixer: @unchecked Sendable {
             }
             if equalizes {
                 equalizer.endCycle(frames: count)
+                isFiltering = true
                 if equalizer.mayRaise { isEqualizing = true }
             }
         }
@@ -147,12 +150,21 @@ public final class TapMixer: @unchecked Sendable {
             outputEqualizer.process(
                 left: left.data, leftStride: left.stride, right: right?.data, rightStride: right?.stride ?? 0,
                 frames: frames)
-            if !outputEqualizer.isBypassed, outputEqualizer.mayRaise { isEqualizing = true }
+            if !outputEqualizer.isBypassed {
+                isFiltering = true
+                if outputEqualizer.mayRaise { isEqualizing = true }
+            }
         }
-        if totalGain > 1 || isEqualizing {
+        // Raised sound bends from 0.9 up; sound an equalizer only cuts is left alone below 0.98, and only what its
+        // filters push past that is caught, rather than clipped hard by the output.
+        let knee: Float? =
+            totalGain > 1 || isEqualizing ? SoftLimiter.knee : isFiltering ? SoftLimiter.cutKnee : nil
+        if let knee {
             for frame in 0..<frames {
-                left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride])
-                if let right { right.data[frame * right.stride] = SoftLimiter.limit(right.data[frame * right.stride]) }
+                left.data[frame * left.stride] = SoftLimiter.limit(left.data[frame * left.stride], knee: knee)
+                if let right {
+                    right.data[frame * right.stride] = SoftLimiter.limit(right.data[frame * right.stride], knee: knee)
+                }
             }
         }
         guard meters else { return }
