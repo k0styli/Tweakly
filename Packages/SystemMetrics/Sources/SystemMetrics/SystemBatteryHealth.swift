@@ -14,6 +14,8 @@ enum SystemBatteryHealth {
 
     private struct State {
         var reading = Reading.pending
+        /// The word under it, "Good" when nothing is wrong.
+        var condition: String?
         var lastAttempt: TimeInterval?
         var isRunning = false
     }
@@ -39,18 +41,40 @@ enum SystemBatteryHealth {
         return reading
     }
 
+    /// The system's word on the battery from the same answer, nil until it came.
+    static func condition() -> String? {
+        state.withLock { $0.condition }
+    }
+
     private static func refresh() {
         let output = ExternalTool.run(
             "/usr/sbin/system_profiler", arguments: ["SPPowerDataType", "-json"], timeout: timeout)
         let percent = output.flatMap(maximumCapacity(fromProfilerOutput:))
+        let condition = output.flatMap(condition(fromProfilerOutput:))
         state.withLock { state in
             state.isRunning = false
+            if let condition { state.condition = condition }
             if let percent {
                 state.reading = .known(percent: percent)
             } else if state.reading == .pending {
                 state.reading = .unavailable
             }
         }
+    }
+
+    /// Reads the condition, such as `"Good"`.
+    static func condition(fromProfilerOutput data: Data) -> String? {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let sections = root["SPPowerDataType"] as? [[String: Any]]
+        else { return nil }
+        for section in sections {
+            if let health = section["sppower_battery_health_info"] as? [String: Any],
+                let condition = health["sppower_battery_health"] as? String, !condition.isEmpty
+            {
+                return condition
+            }
+        }
+        return nil
     }
 
     /// Reads a value such as `"92 %"`. Its keys are undocumented, so anything else counts as no answer.

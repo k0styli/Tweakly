@@ -62,6 +62,25 @@ final class SMCClient {
         return output[Offset.bytes]
     }
 
+    /// A whole number of any of the SMC's integer types. The battery's keys are little-endian on Apple silicon: the
+    /// design capacity reads 4563 as the registry does.
+    func readInteger(key: UInt32) -> Int? {
+        guard let info = info(of: key), (1...8).contains(info.size), perform(.read, key: key, dataSize: info.size)
+        else { return nil }
+        let size = Int(info.size)
+        var raw: UInt64 = 0
+        for offset in 0..<size { raw |= UInt64(output[Offset.bytes + offset]) << (8 * offset) }
+        switch info.type {
+        case Self.code("ui8 "), Self.code("ui16"), Self.code("ui32"), Self.code("ui64"):
+            return raw <= UInt64(Int.max) ? Int(raw) : nil
+        case Self.code("si8 "), Self.code("si16"), Self.code("si32"), Self.code("si64"):
+            let shift = UInt64(64 - 8 * size)
+            return Int(Int64(bitPattern: raw << shift) >> Int64(shift))
+        default:
+            return nil
+        }
+    }
+
     /// The total number of keys, stored as a big-endian integer unlike the sensor values.
     func keyCount() -> Int? {
         guard perform(.read, key: Self.code("#KEY"), dataSize: 4) else { return nil }
@@ -234,6 +253,15 @@ final class BatterySensorReader {
         lastTemperatureRead = now
         temperature = ThermalReader.typicalTemperature(temperatureKeys.compactMap(smc.readFloat(key:)))
         return temperature
+    }
+
+    /// Integer keys by name, leaving out those this Mac lacks. About 0.4 ms a key, as each one is looked up first.
+    func integers(_ names: [String]) -> [String: Int] {
+        var values: [String: Int] = [:]
+        for name in names {
+            if let value = smc.readInteger(key: SMCClient.code(name)) { values[name] = value }
+        }
+        return values
     }
 
     private func read(_ key: UInt32?) -> Double? {
