@@ -152,9 +152,7 @@ nonisolated enum AudioSystem {
                 continue
             }
             if bundleID == ownBundle { return nil }
-            return AudioOwner(
-                bundleID: bundleID, name: app.localizedName ?? bundleID, pid: pid,
-                isApp: app.activationPolicy == .regular)
+            return AudioOwner(bundleID: bundleID, name: app.localizedName ?? bundleID, pid: pid)
         }
         // A process with no app, such as a command-line player, goes by its name.
         guard let name = processName(client.pid), client.pid != getpid() else { return nil }

@@ -137,17 +137,17 @@ import Testing
 }
 
 @Suite struct ShownAppsTests {
-    private func app(_ id: String, playing: Bool, isApp: Bool) -> MixerApp {
-        MixerApp(owner: AudioOwner(bundleID: id, name: id, pid: 1, isApp: isApp), objectIDs: [1], isPlaying: playing)
+    private func app(_ id: String, playing: Bool) -> MixerApp {
+        MixerApp(owner: AudioOwner(bundleID: id, name: id, pid: 1), objectIDs: [1], isPlaying: playing)
     }
 
-    @Test func appsWithADockIconShowBeforeTheyPlayAsInWindows() {
+    @Test func appsHeardSinceTheyStartedStayAsSessionsDoInWindows() {
         let apps = [
-            app("Telegram", playing: false, isApp: true), app("corespeechd", playing: false, isApp: false),
-            app("Safari", playing: true, isApp: true), app("PowerChime", playing: true, isApp: false),
+            app("Telegram", playing: false), app("Finder", playing: false), app("Safari", playing: true),
+            app("PowerChime", playing: true),
         ]
-        let shown = AudioAppGrouping.shown(apps, ruled: [], alreadyShown: []).map(\.id)
-        // Playing first, then the silent apps; a silent daemon not at all.
+        let shown = AudioAppGrouping.shown(apps, ruled: [], heard: ["Telegram", "Safari"], alreadyShown: []).map(\.id)
+        // Playing first, then the silent app heard before; Finder, connected but never heard, not at all.
         #expect(shown == ["PowerChime", "Safari", "Telegram"])
     }
 }

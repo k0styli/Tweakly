@@ -27,6 +27,7 @@ final class TapEngine {
         for (output, runner) in running where wanted[output] == nil {
             runner.stop()
             running[output] = nil
+            Self.log.notice("Let go of the sound on \(Self.describe(output), privacy: .public)")
         }
         failed = failed.filter { output, group in wanted[output]?.hasSameSound(as: group) == true }
         for group in groups {
@@ -40,6 +41,10 @@ final class TapEngine {
             do {
                 let runner = try TapGroupRunner(group)
                 running[group.outputUID] = runner
+                // What this process takes and where, so a question about sound going astray can be answered later.
+                Self.log.notice(
+                    "Took \(group.taps.count, privacy: .public) apps\(group.output == nil ? "" : " and the whole output", privacy: .public) on \(Self.describe(group.outputUID), privacy: .public)"
+                )
                 if runner.isPermitted {
                     isPermitted = true
                 } else {
@@ -80,6 +85,12 @@ final class TapEngine {
     func stop() {
         running.values.forEach { $0.stop() }
         running = [:]
+    }
+
+    /// An output as the log names it: its kind, never its name or UID, which can carry a person's or a device's.
+    private static func describe(_ uid: String) -> String {
+        let kind = AudioSystem.devices(input: false).first { $0.uid == uid }?.kind.rawValue ?? "unknown"
+        return "an output of kind \(kind)"
     }
 
     #if TWEAKLY_AUTOMATION

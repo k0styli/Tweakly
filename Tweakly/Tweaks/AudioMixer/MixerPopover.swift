@@ -3,6 +3,7 @@ import AudioMixerCore
 import AudioToolbox
 import CoreAudio
 import notify
+import os
 
 #if TWEAKLY_AUTOMATION
     import SystemMetrics
@@ -12,6 +13,8 @@ import notify
 struct MixerOptions {
     var showsInput: Bool
     var boosts: Bool
+    /// Apps heard since they started, shown while silent, see `AudioSessions`.
+    var heard: Set<String> = []
 }
 
 /// Shows the mixer's popover beneath its item and releases all of it when it closes, as the stats popovers do.
@@ -64,6 +67,7 @@ final class MixerPopoverPresenter {
 /// volume, and the input.
 /// It listens to Core Audio only while open and changes nothing until something is moved.
 final class MixerViewController: NSViewController {
+    private static let log = Logger(subsystem: "me.tweakly.Tweakly", category: "volume-mixer")
     private static let screenMargin: CGFloat = 60
     private static let soundURL = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
 
@@ -272,6 +276,7 @@ final class MixerViewController: NSViewController {
             let row = MixerDeviceRow(
                 device: device, isCurrent: device.id == outputID, equalizer: device.id == outputID ? nil : described)
             row.onChoose = { [weak self] in
+                Self.log.notice("Output of kind \(device.kind.rawValue, privacy: .public) chosen in the popover")
                 AudioSystem.setDefaultDevice(device.id, input: false)
                 self?.refreshDevices()
             }
@@ -402,6 +407,7 @@ final class MixerViewController: NSViewController {
 
     @objc private func chooseInput() {
         guard let id = inputMenu.selectedItem?.representedObject as? AudioObjectID else { return }
+        Self.log.notice("Input chosen in the popover")
         AudioSystem.setDefaultDevice(id, input: true)
         refreshDevices()
     }
@@ -429,7 +435,7 @@ final class MixerViewController: NSViewController {
         ruledApps = ruled
         let apps = self.apps ?? []
         listenToPlaying(apps)
-        let shown = AudioAppGrouping.shown(apps, ruled: ruled, alreadyShown: shownApps)
+        let shown = AudioAppGrouping.shown(apps, ruled: ruled, heard: options.heard, alreadyShown: shownApps)
         shownApps = shown.map(\.id)
         let highest = AudioRuleBook.highestVolume(boosting: options.boosts)
         var rows: [MixerAppRow] = []
