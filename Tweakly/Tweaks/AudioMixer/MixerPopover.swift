@@ -60,7 +60,8 @@ final class MixerPopoverPresenter {
     }
 }
 
-/// The popover: the output's volume, the outputs to choose from, each app playing with its own volume, and the input.
+/// The popover: the output's volume, the outputs to choose from with the one in use's equalizer, each app with its own
+/// volume, and the input.
 /// It listens to Core Audio only while open and changes nothing until something is moved.
 final class MixerViewController: NSViewController {
     private static let screenMargin: CGFloat = 60
@@ -75,6 +76,15 @@ final class MixerViewController: NSViewController {
     private let outputVolume = MixerVolumeRow(
         name: String(localized: "Volume"), symbol: "speaker.wave.3.fill", mutedSymbol: "speaker.slash.fill")
     private let outputsColumn = NSStackView.detailColumn(spacing: 0)
+    /// The output in use's equalizer, as the input's menu is shown below: seen at a glance, changed in one click.
+    private let equalizerMenu = NSPopUpButton(frame: .zero, pullsDown: false)
+    private lazy var equalizerRow: NSStackView = {
+        let label = NSTextField.detailLabel(String(localized: "Equalizer"), font: .systemFont(ofSize: 13))
+        let row = NSStackView(views: [label, NSView(), equalizerMenu])
+        row.orientation = .horizontal
+        row.distribution = .fill
+        return row
+    }()
     private let appsColumn = NSStackView.detailColumn(spacing: 8)
     private let appsNote = NSTextField.detailLabel(color: .secondaryLabelColor)
     private lazy var permissionButton = NSButton(
@@ -123,6 +133,8 @@ final class MixerViewController: NSViewController {
         inputMenu.controlSize = .small
         inputMenu.target = self
         inputMenu.action = #selector(chooseInput)
+        equalizerMenu.controlSize = .small
+        equalizerMenu.setAccessibilityLabel(String(localized: "Equalizer"))
         appsNote.lineBreakMode = .byWordWrapping
         appsNote.maximumNumberOfLines = 0
         permissionButton.bezelStyle = .accessoryBar
@@ -149,7 +161,8 @@ final class MixerViewController: NSViewController {
             spacing: DetailLayout.sectionSpacing,
             [
                 NSStackView.detailColumn(spacing: 8, [header, outputVolume]),
-                NSStackView.detailColumn(spacing: 4, [detailSectionTitle(String(localized: "Output")), outputsColumn]),
+                NSStackView.detailColumn(
+                    spacing: 4, [detailSectionTitle(String(localized: "Output")), outputsColumn, equalizerRow]),
                 NSStackView.detailColumn(
                     spacing: 6,
                     [detailSectionTitle(String(localized: "Apps")), appsColumn, appsNote, permissionButton]),
@@ -250,11 +263,14 @@ final class MixerViewController: NSViewController {
         let book = AudioRuleStore.load()
         let custom = AudioRuleStore.customPresets()
         shownEqualizers = [:]
+        shownPresets = custom.map(\.id) + custom.map(\.name)
         for device in outputs {
             let settings = book.equalizer(forOutput: device.uid)
             let described = settings.isFlat ? nil : EqualizerNames.describe(settings, custom: custom)
             shownEqualizers[device.uid] = described
-            let row = MixerDeviceRow(device: device, isCurrent: device.id == outputID, equalizer: described)
+            // The output in use has its equalizer in the row below the list; the others say theirs beside the name.
+            let row = MixerDeviceRow(
+                device: device, isCurrent: device.id == outputID, equalizer: device.id == outputID ? nil : described)
             row.onChoose = { [weak self] in
                 AudioSystem.setDefaultDevice(device.id, input: false)
                 self?.refreshDevices()
@@ -262,6 +278,34 @@ final class MixerViewController: NSViewController {
             row.makeMenu = { [weak self] in self?.equalizerMenu(for: device) ?? NSMenu() }
             outputsColumn.addFullWidth(row)
         }
+        showEqualizer(book: book, custom: custom)
+    }
+
+    /// The output in use's equalizer in its menu, the one chosen checked and shown.
+    private func showEqualizer(book: AudioRuleBook, custom: [CustomEqualizerPreset]) {
+        let menu = NSMenu()
+        guard let device = outputs.first(where: { $0.id == outputID }) else {
+            equalizerRow.isHidden = true
+            return
+        }
+        equalizerRow.isHidden = false
+        if device.isStereo {
+            for item in EqualizerMenu.items(
+                settings: book.equalizer(forOutput: device.uid), custom: custom,
+                choose: { AudioRuleStore.setEqualizer($0, forOutput: device.uid, name: device.name) },
+                customize: { [weak self] in
+                    self?.onClose?()
+                    EqualizerMenu.customize("output:\(device.uid)")
+                })
+            {
+                menu.addItem(item)
+            }
+        } else {
+            menu.addItem(withTitle: String(localized: "For Stereo Outputs Only"), action: nil, keyEquivalent: "")
+        }
+        equalizerMenu.menu = menu
+        if let chosen = menu.items.first(where: { $0.state == .on }) { equalizerMenu.select(chosen) }
+        equalizerMenu.isEnabled = device.isStereo
     }
 
     /// An output's equalizer as a menu, from the rules as they are now.
@@ -289,13 +333,16 @@ final class MixerViewController: NSViewController {
         return menu
     }
 
-    /// Each output's equalizer as last shown, so a rule moving a slider many times a second does not lay the rows out
-    /// again.
+    /// Each output's equalizer as last shown, and the person's presets, so a rule moving a slider many times a second
+    /// does not lay the rows out again.
     private var shownEqualizers: [String: String] = [:]
+    private var shownPresets: [String] = []
 
     private func equalizersChanged() -> Bool {
         let book = AudioRuleStore.load()
         let custom = AudioRuleStore.customPresets()
+        // A preset saved or renamed belongs in the equalizer's menu too.
+        if custom.map(\.id) + custom.map(\.name) != shownPresets { return true }
         for device in outputs {
             let settings = book.equalizer(forOutput: device.uid)
             let described = settings.isFlat ? nil : EqualizerNames.describe(settings, custom: custom)

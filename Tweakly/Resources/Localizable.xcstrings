@@ -27190,34 +27190,6 @@
         }
       }
     },
-    "Everything this output plays. An app’s own equalizer comes before it.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Весь звук этого выхода. Эквалайзер отдельного приложения работает раньше него."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alles, was diese Ausgabe wiedergibt. Der eigene Equalizer einer App wirkt davor."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この出力で再生されるすべての音。アプリごとのイコライザはその前に適用されます。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此输出播放的所有声音。App自己的均衡器会先起作用。"
-          }
-        }
-      }
-    },
     "Flat": {
       "localizations": {
         "ru": {
@@ -27750,34 +27722,6 @@
         }
       }
     },
-    "Preset": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Набор настроек"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Voreinstellung"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プリセット"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预置"
-          }
-        }
-      }
-    },
     "Presets": {
       "localizations": {
         "ru": {
@@ -27942,34 +27886,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "诵读音乐"
-          }
-        }
-      }
-    },
-    "This app’s sound alone, before its output’s equalizer.": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Только звук этого приложения, до эквалайзера его выхода."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nur der Ton dieser App, vor dem Equalizer ihrer Ausgabe."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このアプリの音だけに、出力のイコライザより前に適用されます。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仅此App的声音，在其输出的均衡器之前。"
           }
         }
       }

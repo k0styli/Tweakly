@@ -21,11 +21,26 @@ struct VolumeMixerPageView: View {
     /// Outputs come and go, headphones above all, while the page is open.
     @State private var deviceListener: AudioListener?
     @State private var custom = AudioRuleStore.customPresets()
-    @State private var editing: EqualizerTarget?
     @State private var isOrdering = false
     @State private var isListingPresets = false
+    /// The equalizer being saved as a preset of the person's, and the name being typed for it.
+    @State private var naming: EqualizerTarget?
+    @State private var presetName = ""
+    /// The equalizer the popover's Customize… asked for, scrolled to once it is drawn.
+    @State private var requested: String?
 
     var body: some View {
+        ScrollViewReader { scroller in
+            form
+                .onChange(of: requested) { _, target in
+                    guard let target else { return }
+                    withAnimation { scroller.scrollTo(target, anchor: .top) }
+                    requested = nil
+                }
+        }
+    }
+
+    private var form: some View {
         Form {
             Section {
                 MainSwitch(
@@ -69,7 +84,8 @@ struct VolumeMixerPageView: View {
                         bundleID: bundleID, rule: rules.rule(for: bundleID), outputs: outputs,
                         highest: AudioRuleBook.highestVolume(boosting: settings.volumeMixerBoosts), custom: custom,
                         change: { change(bundleID, $0) },
-                        edit: { editing = .app(bundleID: bundleID, name: AppIdentity.of(bundleID).name) }
+                        makePreset: { startNaming(.app(bundleID: bundleID, name: AppIdentity.of(bundleID).name)) },
+                        editList: { isListingPresets = true }
                     ) {
                         if index == 0 { appsTitle }
                     }
@@ -111,8 +127,11 @@ struct VolumeMixerPageView: View {
             }
         }
         .formStyle(.grouped)
-        .sheet(item: $editing) { target in
-            EqualizerEditor(target: target)
+        .alert("Make Preset", isPresented: isNaming) {
+            TextField("New Preset Name:", text: $presetName)
+            Button("Cancel", role: .cancel) {}
+            Button("OK") { makePreset() }
+                .disabled(presetName.trimmingCharacters(in: .whitespaces).isEmpty)
         }
         .sheet(isPresented: $isOrdering) {
             DeviceOrderSheet()
@@ -162,10 +181,12 @@ struct VolumeMixerPageView: View {
         Section {
             ForEach(equalizerOutputs, id: \.uid) { output in
                 let target = EqualizerTarget.output(uid: output.uid, name: output.name)
+                let equalizer = rules.equalizer(forOutput: output.uid)
                 LabeledContent {
                     EqualizerPicker(
-                        title: Text(verbatim: output.name), settings: rules.equalizer(forOutput: output.uid),
-                        custom: custom, choose: { target.save($0) }, customize: { editing = target }
+                        title: Text(verbatim: output.name), settings: equalizer, custom: custom,
+                        choose: { target.save($0) }, makePreset: { startNaming(target) },
+                        editList: { isListingPresets = true }
                     )
                     .labelsHidden()
                     .fixedSize()
@@ -183,6 +204,12 @@ struct VolumeMixerPageView: View {
                             .foregroundStyle(output.isConnected ? .secondary : .tertiary)
                     }
                 }
+                .id(target.id)
+                // Turned on, the equalizer opens right here, as a row does in System Settings; an output not
+                // connected keeps only its menu.
+                if !equalizer.isFlat, output.isStereo, output.isConnected {
+                    EqualizerRows(settings: equalizer) { target.save($0) }
+                }
             }
         } header: {
             SectionTitle(
@@ -191,11 +218,25 @@ struct VolumeMixerPageView: View {
                     "For everything an output plays, with Music’s presets. An app’s own equalizer is in its group above."
                 ))
         }
-        .sectionActions {
-            if !custom.isEmpty {
-                Button("Edit List…") { isListingPresets = true }
-            }
-        }
+    }
+
+    /// Asks for a name, then keeps the equalizer's settings as a preset of the person's.
+    private func startNaming(_ target: EqualizerTarget) {
+        presetName = ""
+        naming = target
+    }
+
+    private var isNaming: Binding<Bool> {
+        Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })
+    }
+
+    private func makePreset() {
+        let name = presetName.trimmingCharacters(in: .whitespaces)
+        guard let target = naming, !name.isEmpty else { return }
+        let preset = CustomEqualizerPreset(name: name, from: target.settings(in: AudioRuleStore.load()))
+        AudioRuleStore.saveCustomPresets(AudioRuleStore.customPresets() + [preset])
+        target.save(preset.settings)
+        naming = nil
     }
 
     // MARK: Devices
@@ -226,18 +267,15 @@ struct VolumeMixerPageView: View {
         }
     }
 
-    /// The equalizer the popover asked to customize, once.
+    /// The equalizer the popover asked to customize, once: scrolled to, an app's group shown if it had none yet.
     private func openRequestedEqualizer() {
         guard let request = AudioRuleStore.takeEditorRequest() else { return }
-        if request.hasPrefix("output:") {
-            let uid = String(request.dropFirst("output:".count))
-            let name =
-                outputs.first { $0.uid == uid }?.name ?? AudioSystem.devices(input: false).first { $0.uid == uid }?.name
-                ?? rules.outputs[uid]?.name ?? uid
-            editing = .output(uid: uid, name: name)
-        } else if request.hasPrefix("app:") {
+        if request.hasPrefix("app:") {
             let bundleID = String(request.dropFirst("app:".count))
-            editing = .app(bundleID: bundleID, name: AppIdentity.of(bundleID).name)
+            if !shownApps.contains(bundleID) { shownApps.append(bundleID) }
+            requested = EqualizerTarget.app(bundleID: bundleID, name: "").id
+        } else if request.hasPrefix("output:") {
+            requested = EqualizerTarget.output(uid: String(request.dropFirst("output:".count)), name: "").id
         }
     }
 
@@ -283,7 +321,8 @@ private struct AppRuleSection<Header: View>: View {
     let highest: Double
     let custom: [CustomEqualizerPreset]
     let change: ((inout AppAudioRule) -> Void) -> Void
-    let edit: () -> Void
+    let makePreset: () -> Void
+    let editList: () -> Void
     @ViewBuilder let header: () -> Header
 
     var body: some View {
@@ -335,10 +374,19 @@ private struct AppRuleSection<Header: View>: View {
             }
             EqualizerPicker(
                 title: Text("Equalizer"), settings: rule.equalizer ?? .flat, custom: custom,
-                choose: { settings in change { $0.equalizer = settings.isFlat ? nil : settings } }, customize: edit)
+                choose: setEqualizer, makePreset: makePreset, editList: editList
+            )
+            .id(EqualizerTarget.app(bundleID: bundleID, name: "").id)
+            if let equalizer = rule.equalizer, !equalizer.isFlat {
+                EqualizerRows(settings: equalizer, change: setEqualizer)
+            }
         } header: {
             header()
         }
+    }
+
+    private func setEqualizer(_ settings: EqualizerSettings) {
+        change { $0.equalizer = settings.isFlat ? nil : settings }
     }
 
     /// 0, 50 and 100 %, and 150 and 200 % while boosting, which the knob is drawn to.

@@ -24,11 +24,14 @@ public struct AudioOwner: Hashable, Sendable {
     public var name: String
     /// The app's own process, for its icon.
     public var pid: Int32
+    /// An app with a Dock icon, as opposed to a background agent or a daemon.
+    public var isApp: Bool
 
-    public init(bundleID: String, name: String, pid: Int32) {
+    public init(bundleID: String, name: String, pid: Int32, isApp: Bool = false) {
         self.bundleID = bundleID
         self.name = name
         self.pid = pid
+        self.isApp = isApp
     }
 }
 
@@ -76,17 +79,23 @@ public enum AudioAppGrouping {
         return order.compactMap { byApp[$0] }
     }
 
-    /// The rows the popover shows: apps playing now, apps with a rule of their own, and apps it showed already while
-    /// open, so that a row never jumps away under the pointer. Kept in the order they first appeared.
+    /// The rows the popover shows, as the Windows mixer shows every app with a sound session, playing or not: apps
+    /// playing now, apps with a Dock icon connected to the sound server, so a volume can be set before they play,
+    /// apps with a rule of their own, and apps it showed already while open, so that a row never jumps away under the
+    /// pointer. A background agent or daemon shows only while it plays. Kept in the order they first appeared, the
+    /// new ones playing first.
     public static func shown(
         _ apps: [MixerApp], ruled: Set<String>, alreadyShown: [String]
     ) -> [MixerApp] {
-        let wanted = apps.filter { $0.isPlaying || ruled.contains($0.id) || alreadyShown.contains($0.id) }
+        let wanted = apps.filter {
+            $0.isPlaying || $0.owner.isApp || ruled.contains($0.id) || alreadyShown.contains($0.id)
+        }
         let known = wanted.filter { alreadyShown.contains($0.id) }.sorted {
             (alreadyShown.firstIndex(of: $0.id) ?? 0) < (alreadyShown.firstIndex(of: $1.id) ?? 0)
         }
         let new = wanted.filter { !alreadyShown.contains($0.id) }.sorted {
-            $0.owner.name.localizedStandardCompare($1.owner.name) == .orderedAscending
+            if $0.isPlaying != $1.isPlaying { return $0.isPlaying }
+            return $0.owner.name.localizedStandardCompare($1.owner.name) == .orderedAscending
         }
         return known + new
     }

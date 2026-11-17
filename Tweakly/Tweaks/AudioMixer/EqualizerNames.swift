@@ -62,7 +62,8 @@ enum EqualizerNames {
 
     /// A band's frequency as Music writes it under its slider: 500, 1K, 16K.
     static func shortLabel(_ frequency: Double) -> String {
-        frequency >= 1000 ? "\(Int(frequency / 1000))K" : "\(Int(frequency))"
+        // Rounded, not cut: a frequency come back from a logarithm is 63.99… for 64.
+        frequency >= 999.5 ? "\(Int((frequency / 1000).rounded()))K" : "\(Int(frequency.rounded()))"
     }
 
     /// A band's frequency spoken out, for VoiceOver.

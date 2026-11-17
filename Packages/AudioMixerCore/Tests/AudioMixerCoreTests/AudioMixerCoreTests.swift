@@ -136,6 +136,22 @@ import Testing
     }
 }
 
+@Suite struct ShownAppsTests {
+    private func app(_ id: String, playing: Bool, isApp: Bool) -> MixerApp {
+        MixerApp(owner: AudioOwner(bundleID: id, name: id, pid: 1, isApp: isApp), objectIDs: [1], isPlaying: playing)
+    }
+
+    @Test func appsWithADockIconShowBeforeTheyPlayAsInWindows() {
+        let apps = [
+            app("Telegram", playing: false, isApp: true), app("corespeechd", playing: false, isApp: false),
+            app("Safari", playing: true, isApp: true), app("PowerChime", playing: true, isApp: false),
+        ]
+        let shown = AudioAppGrouping.shown(apps, ruled: [], alreadyShown: []).map(\.id)
+        // Playing first, then the silent apps; a silent daemon not at all.
+        #expect(shown == ["PowerChime", "Safari", "Telegram"])
+    }
+}
+
 @Suite struct TapPlanTests {
     let safari = MixerApp(
         owner: AudioOwner(bundleID: "com.apple.Safari", name: "Safari", pid: 100), objectIDs: [7, 3], isPlaying: true)

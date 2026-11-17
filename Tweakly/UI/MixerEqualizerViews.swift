@@ -1,5 +1,6 @@
 import AppKit
 import AudioMixerCore
+import Charts
 import CoreAudio
 import SwiftUI
 import notify
@@ -39,19 +40,22 @@ enum EqualizerTarget: Identifiable, Hashable {
     }
 }
 
-/// The equalizer's choice as a pop-up menu, as Music has it: Off, Manual once a slider moved, Music's presets, the
-/// person's own, and Customize… for the sliders.
+/// The equalizer's choice as a pop-up menu, as Music has it: Off, Manual once a point was moved, Music's presets, the
+/// person's own, and, as at the foot of Music's menu, Make Preset… and Edit List….
 struct EqualizerPicker: View {
     let title: Text
     let settings: EqualizerSettings
     let custom: [CustomEqualizerPreset]
     let choose: (EqualizerSettings) -> Void
-    /// Opens the sliders; nil where they are already open.
-    var customize: (() -> Void)?
+    /// Saves the settings as a preset of the person's; nil where that cannot be done.
+    var makePreset: (() -> Void)?
+    /// Renames and deletes the person's presets.
+    var editList: (() -> Void)?
 
     private static let off = "off"
     private static let manual = "manual"
-    private static let customizeTag = "customize"
+    private static let makeTag = "make"
+    private static let editTag = "edit"
 
     var body: some View {
         Picker(selection: selection) {
@@ -69,9 +73,14 @@ struct EqualizerPicker: View {
                     Text(verbatim: preset.name).tag(preset.id)
                 }
             }
-            if customize != nil {
+            if makePreset != nil && !settings.isFlat || editList != nil && !custom.isEmpty {
                 Divider()
-                Text("Customize…").tag(Self.customizeTag)
+            }
+            if makePreset != nil, !settings.isFlat {
+                Text("Make Preset…").tag(Self.makeTag)
+            }
+            if editList != nil, !custom.isEmpty {
+                Text("Edit List…").tag(Self.editTag)
             }
         } label: {
             title
@@ -90,7 +99,8 @@ struct EqualizerPicker: View {
                 switch tag {
                 case Self.off: choose(.flat)
                 case Self.manual: break
-                case Self.customizeTag: customize?()
+                case Self.makeTag: makePreset?()
+                case Self.editTag: editList?()
                 default:
                     if let settings = EqualizerNames.settings(for: tag, custom: custom) { choose(settings) }
                 }
@@ -98,201 +108,205 @@ struct EqualizerPicker: View {
     }
 }
 
-/// The sliders of one equalizer, as Music's window has them: the preamp, then a slider for each band, every change
-/// heard at once.
-struct EqualizerEditor: View {
-    let target: EqualizerTarget
-    @State private var settings: EqualizerSettings
-    @State private var custom = AudioRuleStore.customPresets()
-    @State private var isNaming = false
-    @State private var newName = ""
-
-    init(target: EqualizerTarget) {
-        self.target = target
-        _settings = State(initialValue: target.settings(in: AudioRuleStore.load()))
-    }
-
-    var body: some View {
-        DetailsSheet(
-            height: 392, resetTitle: "Reset", canReset: !settings.isFlat, reset: { apply(.flat) }
-        ) {
-            Section {
-                EqualizerPicker(
-                    title: Text("Preset", comment: "An equalizer preset, as in Music"), settings: settings,
-                    custom: custom, choose: apply)
-            } header: {
-                SectionTitle(title: Text(verbatim: target.name), detail: explanation)
-            }
-            Section {
-                EqualizerBands(settings: settings) { changed in
-                    var moved = changed
-                    moved.presetID = nil
-                    apply(moved)
-                }
-            }
-            .sectionActions {
-                Button("Make Preset…") {
-                    newName = ""
-                    isNaming = true
-                }
-                .disabled(settings.isFlat)
-            }
-        }
-        .alert("Make Preset", isPresented: $isNaming) {
-            TextField("New Preset Name:", text: $newName)
-            Button("Cancel", role: .cancel) {}
-            Button("OK") { makePreset() }
-                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-        }
-    }
-
-    private var explanation: Text {
-        switch target {
-        case .output:
-            Text("Everything this output plays. An app’s own equalizer comes before it.")
-        case .app:
-            Text("This app’s sound alone, before its output’s equalizer.")
-        }
-    }
-
-    private func apply(_ newSettings: EqualizerSettings) {
-        settings = newSettings
-        target.save(newSettings)
-    }
-
-    private func makePreset() {
-        let name = newName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
-        let preset = CustomEqualizerPreset(name: name, from: settings)
-        custom.append(preset)
-        AudioRuleStore.saveCustomPresets(custom)
-        apply(preset.settings)
-    }
-}
-
-/// The preamp and ten bands, each a vertical slider from −12 to +12 dB, with the scale beside them.
-struct EqualizerBands: View {
+/// An equalizer that is on, right where it was turned on: its curve with a point on each band to drag, and the
+/// preamp, as rows of the group it belongs to. Every change is heard at once.
+struct EqualizerRows: View {
     let settings: EqualizerSettings
     let change: (EqualizerSettings) -> Void
 
-    private static let sliderHeight: CGFloat = 150
-    private static let bandWidth: CGFloat = 36
-
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            scale
-            column(
-                value: settings.preamp, label: Text("Preamp", comment: "The equalizer's preamp, as in Music"),
-                spoken: String(localized: "Preamp", comment: "The equalizer's preamp, as in Music"), width: 80
-            ) { value in
-                var copy = settings
-                copy.preamp = value
-                change(copy)
-            }
-            Divider()
-                .frame(height: Self.sliderHeight)
-                .padding(.horizontal, 6)
-            ForEach(EqualizerSettings.frequencies.indices, id: \.self) { index in
-                let frequency = EqualizerSettings.frequencies[index]
-                column(
-                    value: settings.bands[index], label: Text(verbatim: EqualizerNames.shortLabel(frequency)),
-                    spoken: EqualizerNames.spokenFrequency(frequency), width: Self.bandWidth
-                ) { value in
-                    var copy = settings
-                    copy.bands[index] = value
-                    change(copy)
-                }
-            }
+        EqualizerCurve(settings: settings) { moved in
+            var manual = moved
+            manual.presetID = nil
+            change(manual)
         }
-        .frame(maxWidth: .infinity)
+        .frame(height: 190)
         .padding(.vertical, 6)
+        LabeledContent {
+            HStack(spacing: 10) {
+                Slider(value: preamp, in: EqualizerSettings.range) {
+                    Text("Preamp", comment: "The equalizer's preamp, as in Music")
+                } ticks: {
+                    SliderTick(0.0)
+                }
+                .labelsHidden()
+                .accessibilityValue(Text(verbatim: EqualizerNames.decibels(settings.preamp)))
+                Text(verbatim: EqualizerNames.decibels(settings.preamp))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .frame(width: 56, alignment: .trailing)
+            }
+            .frame(maxWidth: 300)
+        } label: {
+            Text("Preamp", comment: "The equalizer's preamp, as in Music")
+        }
     }
 
-    /// +12, 0 and −12 dB beside the sliders' track, as Music's scale.
-    private var scale: some View {
-        VStack(alignment: .trailing) {
-            Text(verbatim: EqualizerNames.decibels(12))
-            Spacer()
-            Text(verbatim: EqualizerNames.decibels(0))
-            Spacer()
-            Text(verbatim: EqualizerNames.decibels(-12))
-        }
-        .font(.caption2)
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
-        .frame(height: Self.sliderHeight - 8)
-        .padding(.top, 4)
-        .padding(.trailing, 6)
-        .accessibilityHidden(true)
-    }
-
-    private func column(
-        value: Double, label: Text, spoken: String, width: CGFloat, set: @escaping (Double) -> Void
-    ) -> some View {
-        VStack(spacing: 4) {
-            VerticalGainSlider(value: value, spoken: spoken, set: set)
-                .frame(width: 22, height: Self.sliderHeight)
-            label
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .accessibilityHidden(true)
-        }
-        .frame(width: width)
+    /// Quarter decibels, caught at 0 dB within half a decibel.
+    private var preamp: Binding<Double> {
+        Binding(
+            get: { settings.preamp },
+            set: { value in
+                let snapped = abs(value) < 0.5 ? 0 : (value * 4).rounded() / 4
+                guard snapped != settings.preamp else { return }
+                var copy = settings
+                copy.preamp = snapped
+                copy.presetID = nil
+                change(copy)
+            })
     }
 }
 
-/// A vertical `NSSlider`, which SwiftUI does not have on the Mac: the control Music's equalizer is made of. It stops at
-/// 0 dB on the way through, with a tap on the trackpad, so a band is easy to put back.
-struct VerticalGainSlider: NSViewRepresentable {
-    let value: Double
-    let spoken: String
-    let set: (Double) -> Void
+/// The equalizer as a curve over the audible range, with a point on each of Music's bands to drag up or down. The line
+/// is what is heard, worked out from the very filters that play, and it passes through every point. Swift Charts, the
+/// system's own charts, as in Health and Stocks.
+struct EqualizerCurve: View {
+    let settings: EqualizerSettings
+    let change: (EqualizerSettings) -> Void
+    @State private var dragged: Int?
+    @State private var isAtZero = false
 
-    func makeNSView(context: Context) -> NSSlider {
-        let range = EqualizerSettings.range
-        let slider = NSSlider(
-            value: value, minValue: range.lowerBound, maxValue: range.upperBound, target: context.coordinator,
-            action: #selector(Coordinator.moved(_:)))
-        slider.isVertical = true
-        slider.numberOfTickMarks = 5
-        slider.tickMarkPosition = .leading
-        slider.isContinuous = true
-        slider.setAccessibilityLabel(spoken)
-        return slider
+    private static let frequencies = EqualizerSettings.frequencies
+    /// 20 Hz to 20 kHz, evenly on a logarithmic scale.
+    private static let curveFrequencies = (0...160).map { 20 * pow(1000, Double($0) / 160) }
+    /// The rate the curve is drawn for; the filters follow each output's own.
+    private static let sampleRate = 48_000.0
+    private static let scale = 13.0
+    /// The chart's series, which no one reads: the chart is hidden from VoiceOver, whose controls are the bands below.
+    private static let frequencySeries = String("Frequency")
+    private static let gainSeries = String("Gain")
+    private static let zeroSeries = String("0 dB")
+
+    private struct Point: Identifiable {
+        let id: Int
+        let x: Double
+        let y: Double
     }
 
-    func updateNSView(_ slider: NSSlider, context: Context) {
-        context.coordinator.set = set
-        if abs(slider.doubleValue - value) > 0.01 { slider.doubleValue = value }
-        slider.setAccessibilityLabel(spoken)
-        slider.setAccessibilityValueDescription(EqualizerNames.decibels(value))
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(set: set) }
-
-    final class Coordinator: NSObject {
-        var set: (Double) -> Void
-        private var isAtZero = false
-
-        init(set: @escaping (Double) -> Void) {
-            self.set = set
+    var body: some View {
+        let filterGains = EqualizerFilter.filterGains(for: settings.bands, sampleRate: Self.sampleRate)
+        let curve = Self.curveFrequencies.enumerated().map { index, frequency in
+            Point(
+                id: index, x: log10(frequency),
+                y: min(
+                    max(
+                        EqualizerFilter.response(filterGains: filterGains, at: frequency, sampleRate: Self.sampleRate),
+                        -Self.scale), Self.scale))
         }
-
-        @objc func moved(_ slider: NSSlider) {
-            // Quarter decibels, and 0 dB catches the knob within half a decibel.
-            var value = (slider.doubleValue * 4).rounded() / 4
-            let atZero = abs(value) < 0.5
-            if atZero {
-                value = 0
-                if !isAtZero { NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now) }
+        let bands = Self.frequencies.indices.map {
+            Point(id: $0, x: log10(Self.frequencies[$0]), y: settings.bands[$0])
+        }
+        Chart {
+            ForEach(curve) { point in
+                AreaMark(
+                    x: .value(Self.frequencySeries, point.x), yStart: .value(Self.zeroSeries, 0),
+                    yEnd: .value(Self.gainSeries, point.y)
+                )
+                .foregroundStyle(Color.accentColor.opacity(0.12))
             }
-            isAtZero = atZero
-            set(value)
+            ForEach(curve) { point in
+                LineMark(x: .value(Self.frequencySeries, point.x), y: .value(Self.gainSeries, point.y))
+                    .foregroundStyle(Color.accentColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            }
+            ForEach(bands) { band in
+                PointMark(x: .value(Self.frequencySeries, band.x), y: .value(Self.gainSeries, band.y))
+                    .foregroundStyle(Color.accentColor)
+                    .symbolSize(dragged == band.id ? 140 : 70)
+            }
         }
+        .chartXScale(domain: log10(20.0)...log10(20_000.0))
+        .chartYScale(domain: -Self.scale...Self.scale)
+        .chartXAxis {
+            AxisMarks(values: Self.frequencies.map { log10($0) }) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let x = value.as(Double.self) { Text(verbatim: EqualizerNames.shortLabel(pow(10, x))) }
+                }
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: [-12.0, -6, 0, 6, 12]) { value in
+                AxisGridLine()
+                AxisValueLabel {
+                    if let y = value.as(Double.self) { Text(verbatim: EqualizerNames.decibels(y)) }
+                }
+            }
+        }
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                Rectangle()
+                    .fill(.clear)
+                    .contentShape(.rect)
+                    .gesture(drag(proxy: proxy, geometry: geometry))
+                    .simultaneousGesture(
+                        SpatialTapGesture(count: 2).onEnded { tap in
+                            // A double click puts the nearest band back at 0 dB.
+                            guard let band = nearestBand(at: tap.location.x, proxy: proxy, geometry: geometry) else {
+                                return
+                            }
+                            set(band, to: 0)
+                        })
+            }
+        }
+        .accessibilityHidden(true)
+        .overlay {
+            // VoiceOver gets each band as a control of its own, adjusted as a slider is.
+            HStack(spacing: 0) {
+                ForEach(Self.frequencies.indices, id: \.self) { band in
+                    Color.clear
+                        .accessibilityElement()
+                        .accessibilityLabel(Text(verbatim: EqualizerNames.spokenFrequency(Self.frequencies[band])))
+                        .accessibilityValue(Text(verbatim: EqualizerNames.decibels(settings.bands[band])))
+                        .accessibilityAdjustableAction { direction in
+                            let step = direction == .increment ? 0.5 : -0.5
+                            set(band, to: settings.bands[band] + step)
+                        }
+                }
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func drag(proxy: ChartProxy, geometry: GeometryProxy) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { drag in
+                guard let plot = proxy.plotFrame else { return }
+                let origin = geometry[plot].origin
+                // The band nearest where the drag began, held until it ends.
+                if dragged == nil {
+                    dragged = nearestBand(at: drag.startLocation.x, proxy: proxy, geometry: geometry)
+                }
+                guard let band = dragged, let y: Double = proxy.value(atY: drag.location.y - origin.y) else { return }
+                // Quarter decibels, caught at 0 dB within half a decibel with a tap on the trackpad.
+                let atZero = abs(y) < 0.5
+                if atZero, !isAtZero {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
+                isAtZero = atZero
+                set(band, to: atZero ? 0 : (y * 4).rounded() / 4)
+            }
+            .onEnded { _ in
+                dragged = nil
+                isAtZero = false
+            }
+    }
+
+    private func nearestBand(at x: CGFloat, proxy: ChartProxy, geometry: GeometryProxy) -> Int? {
+        guard let plot = proxy.plotFrame,
+            let value: Double = proxy.value(atX: x - geometry[plot].origin.x)
+        else { return nil }
+        return Self.frequencies.indices.min {
+            abs(log10(Self.frequencies[$0]) - value) < abs(log10(Self.frequencies[$1]) - value)
+        }
+    }
+
+    private func set(_ band: Int, to value: Double) {
+        let clamped = min(max(value, EqualizerSettings.range.lowerBound), EqualizerSettings.range.upperBound)
+        guard settings.bands.indices.contains(band), clamped != settings.bands[band] else { return }
+        var copy = settings
+        copy.bands[band] = clamped
+        change(copy)
     }
 }
 
