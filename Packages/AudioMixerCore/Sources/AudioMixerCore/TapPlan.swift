@@ -71,7 +71,9 @@ public enum TapPlan {
     /// plays where it would anyway.
     ///
     /// An output with an equalizer is taken whole while anything plays on it, or did a moment ago, leaving out this
-    /// process and the apps taken apart.
+    /// process and the apps with rules that play on it by themselves. Those apps are left out, and the ones sent there
+    /// taken, for as long as the output is, playing or not: an app starting or stopping then never builds the output's
+    /// group again, which would interrupt everything played on it for a moment.
     ///
     /// - Parameters:
     ///   - holding: Apps given back their own sound a moment ago, see `releaseHold`, which stay where they are at
@@ -85,40 +87,51 @@ public enum TapPlan {
         connectedOutputs: Set<String>, holding: Set<String> = [], activeOutputs: Set<String> = [],
         holdingOutputs: Set<String> = [], surroundOutputs: Set<String> = [], ownObjectID: UInt32? = nil
     ) -> [TapGroup] {
-        var order: [String] = []
-        var groups: [String: [TapItem]] = [:]
-        /// The processes of apps taken apart, by the output they play on by themselves, where their own sound is muted.
-        var takenApart: [String: [UInt32]] = [:]
-        for app in apps where active.contains(app.id) && !app.objectIDs.isEmpty {
+        // Every app whose rule changes its sound, where it would play by itself and where it is to play.
+        let ruled: [(app: MixerApp, item: TapItem, output: String, natural: String?)] = apps.compactMap { app in
+            guard !app.objectIDs.isEmpty else { return nil }
             let rule = rules.rule(for: app.id)
             let isHeld = holding.contains(app.id)
-            guard !rule.isStandard || isHeld else { continue }
+            guard !rule.isStandard || isHeld else { return nil }
             let natural = app.outputUID ?? systemOutputUID
             let chosen = rule.outputUID.flatMap { connectedOutputs.contains($0) ? $0 : nil }
-            guard let output = chosen ?? natural else { continue }
+            guard let output = chosen ?? natural else { return nil }
             // Its own volume where it plays anyway is the same sound: nothing to take.
             if output == natural, abs(rule.volume - 1) < 0.005, !rule.isMuted, !rule.hasEqualizer, !isHeld {
-                continue
+                return nil
             }
-            if groups[output] == nil { order.append(output) }
-            groups[output, default: []].append(
-                TapItem(
-                    bundleID: app.id, objectIDs: app.objectIDs.sorted(), gain: rule.gain,
-                    equalizer: rule.equalizer ?? .flat))
-            if let natural { takenApart[natural, default: []] += app.objectIDs }
+            let item = TapItem(
+                bundleID: app.id, objectIDs: app.objectIDs.sorted(), gain: rule.gain,
+                equalizer: rule.equalizer ?? .flat)
+            return (app, item, output, natural)
         }
         // An output with an equalizer is taken whole while something plays on it by itself, or an app is sent there,
-        // whose sound reaches it only through this. Left out: this process, and the apps taken apart that play on it
-        // by themselves, which reach it through their own taps; an app taken apart elsewhere never plays here.
-        // Without knowing this process, no output is taken whole: it would take back its own sound, round and round.
+        // whose sound reaches it only through this. Without knowing this process, no output is taken whole: it would
+        // take back its own sound, round and round. A surround output never is: the mixer's sound is stereo, and it
+        // would fold the rest down.
+        var whole: [String] = []
+        if ownObjectID != nil {
+            let equalized = Set(rules.outputs.filter { !$0.value.equalizer.isFlat }.keys).union(holdingOutputs)
+            let sentTo = Set(ruled.filter { active.contains($0.app.id) }.map(\.output))
+            whole = equalized.subtracting(surroundOutputs).sorted().filter {
+                connectedOutputs.contains($0) && (activeOutputs.contains($0) || sentTo.contains($0))
+            }
+        }
+        let wholeSet = Set(whole)
+        var order: [String] = []
+        var groups: [String: [TapItem]] = [:]
+        for entry in ruled where active.contains(entry.app.id) || wholeSet.contains(entry.output) {
+            if groups[entry.output] == nil { order.append(entry.output) }
+            groups[entry.output, default: []].append(entry.item)
+        }
         guard let ownObjectID else { return order.map { TapGroup(outputUID: $0, taps: groups[$0] ?? []) } }
         var outputs: [String: OutputTap] = [:]
-        let equalized = Set(rules.outputs.filter { !$0.value.equalizer.isFlat }.keys).union(holdingOutputs)
-        // A surround output is never taken whole: the mixer's sound is stereo, and it would fold the rest down.
-        for uid in equalized.subtracting(surroundOutputs).sorted()
-        where connectedOutputs.contains(uid) && (activeOutputs.contains(uid) || groups[uid] != nil) {
+        for uid in whole {
             if groups[uid] == nil { order.append(uid) }
-            let excluded = Set(takenApart[uid] ?? []).union([ownObjectID]).sorted()
+            // Left out: this process, and every app with a rule that plays here by itself, taken apart now or once it
+            // plays; an app playing elsewhere by itself never plays here.
+            let apart = ruled.filter { $0.natural == uid }.flatMap(\.app.objectIDs)
+            let excluded = Set(apart).union([ownObjectID]).sorted()
             // One given back its own sound a moment ago stays taken, flat, as an app does (`releaseHold`).
             outputs[uid] = OutputTap(excluded: excluded, equalizer: rules.equalizer(forOutput: uid))
         }

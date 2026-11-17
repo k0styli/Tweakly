@@ -226,6 +226,53 @@ import Testing
         #expect(airPods?.output?.equalizer.presetID == "rock")
     }
 
+    @Test func anAppStartingOnAnOutputTakenWholeBuildsNothing() {
+        // Music plays on the speakers with their equalizer; Safari at half volume is quiet, then plays.
+        var rules = AudioRuleBook()
+        rules.set(AppAudioRule(volume: 0.5), for: "safari")
+        rules.setEqualizer(EqualizerPreset.builtIn("pop")!.settings, forOutput: "speakers", name: "Speakers")
+        func plan(safariActive: Bool) -> [TapGroup] {
+            TapPlan.groups(
+                apps: [app("safari", [20, 21], playing: safariActive)], rules: rules,
+                active: safariActive ? ["safari"] : [], systemOutputUID: "speakers", connectedOutputs: ["speakers"],
+                activeOutputs: ["speakers"], ownObjectID: 5)
+        }
+        let quiet = plan(safariActive: false)
+        let playing = plan(safariActive: true)
+        #expect(quiet.count == 1 && quiet[0].taps.map(\.bundleID) == ["safari"])
+        #expect(quiet[0].output?.excluded == [5, 20, 21])
+        #expect(playing.count == 1 && playing[0].hasSameSound(as: quiet[0]))
+    }
+
+    @Test func aQuietAppSentElsewhereIsLeftOutOfTheWholeSoundUntaken() {
+        // Zoom is sent to the headphones and quiet: the speakers leave it out already, and nothing is built for the
+        // headphones until it plays, when the speakers' group stays as it is.
+        var rules = AudioRuleBook()
+        rules.set(AppAudioRule(outputUID: "headphones"), for: "zoom")
+        rules.setEqualizer(EqualizerPreset.builtIn("pop")!.settings, forOutput: "speakers", name: "Speakers")
+        func plan(zoomActive: Bool) -> [TapGroup] {
+            TapPlan.groups(
+                apps: [app("zoom", [30], playing: zoomActive)], rules: rules, active: zoomActive ? ["zoom"] : [],
+                systemOutputUID: "speakers", connectedOutputs: ["speakers", "headphones"],
+                activeOutputs: ["speakers"], ownObjectID: 5)
+        }
+        let quiet = plan(zoomActive: false)
+        #expect(quiet.map(\.outputUID) == ["speakers"])
+        #expect(quiet[0].taps.isEmpty && quiet[0].output?.excluded == [5, 30])
+        let playing = plan(zoomActive: true)
+        #expect(playing.first { $0.outputUID == "speakers" }?.hasSameSound(as: quiet[0]) == true)
+        #expect(playing.first { $0.outputUID == "headphones" }?.taps.map(\.bundleID) == ["zoom"])
+    }
+
+    @Test func quietAppsAreNotTakenWhereNoOutputIsTakenWhole() {
+        var rules = AudioRuleBook()
+        rules.set(AppAudioRule(volume: 0.5), for: "safari")
+        let groups = TapPlan.groups(
+            apps: [app("safari", [20], playing: false)], rules: rules, active: [], systemOutputUID: "speakers",
+            connectedOutputs: ["speakers"], activeOutputs: ["speakers"], ownObjectID: 5)
+        #expect(groups.isEmpty)
+    }
+
     @Test func aSurroundOutputIsNeverTakenWhole() {
         var rules = AudioRuleBook()
         rules.setEqualizer(EqualizerPreset.builtIn("pop")!.settings, forOutput: "receiver", name: "Receiver")
