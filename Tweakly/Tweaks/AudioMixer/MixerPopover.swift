@@ -455,11 +455,12 @@ final class MixerViewController: NSViewController {
             if stopped {
                 String(
                     localized:
-                        "Apps play at their own volume: the part of Tweakly that changes it stopped twice. Turn the mixer off and on to try again."
+                        "App volumes and equalizers do not work: the part of Tweakly that changes them stopped twice. Turn the mixer off and on to try again."
                 )
             } else if !permitted {
                 String(
-                    localized: "macOS has not allowed Tweakly to record system audio, so apps play at their own volume."
+                    localized:
+                        "macOS has not allowed Tweakly to record system audio, so app volumes and equalizers do not work."
                 )
             } else {
                 String(localized: "Nothing is playing now.")

@@ -40,7 +40,7 @@ struct PermissionsPageView: View {
                 }
                 AccessRow(
                     symbol: "waveform", title: Text("System Audio Recording Only"),
-                    note: Text("The volume of each app."),
+                    note: Text("Each app’s volume and the equalizers."),
                     uses: [.volumeMixer],
                     waiting: access.audioRecording == .notAllowed && settings.volumeMixerEnabled ? [.volumeMixer] : []
                 ) {

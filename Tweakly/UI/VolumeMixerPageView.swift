@@ -56,7 +56,7 @@ struct VolumeMixerPageView: View {
             if settings.volumeMixerEnabled, hasStopped {
                 Section {
                     Label {
-                        Text("App Volumes Do Not Work")
+                        Text("App Volumes and Equalizers Do Not Work")
                         Text(
                             "The part of Tweakly that changes them stopped twice. Turn the mixer off and on to try again."
                         )
@@ -71,7 +71,7 @@ struct VolumeMixerPageView: View {
                     MissingAccessRow(
                         title: Text("System Audio Recording"),
                         detail: Text(
-                            "macOS changes an app’s volume only through it. Until then apps play as they are."),
+                            "App volumes and equalizers work only with it. Until then sound plays as it is."),
                         open: { router.open(.permissions) })
                 }
             }

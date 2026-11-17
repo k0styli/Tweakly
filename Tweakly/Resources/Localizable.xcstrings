@@ -1881,30 +1881,30 @@
         }
       }
     },
-    "App Volumes Do Not Work": {
+    "App Volumes and Equalizers Do Not Work": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "App-Lautstärken funktionieren nicht"
+            "value": "App-Lautstärken und Equalizer funktionieren nicht"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリごとの音量が機能しません"
+            "value": "アプリごとの音量とイコライザが機能しません"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Громкость приложений не работает"
+            "value": "Громкость приложений и эквалайзеры не работают"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "App音量不可用"
+            "value": "App音量和均衡器不可用"
           }
         }
       }
@@ -1938,30 +1938,30 @@
         }
       }
     },
-    "Apps play at their own volume: the part of Tweakly that changes it stopped twice. Turn the mixer off and on to try again.": {
+    "App volumes and equalizers do not work: the part of Tweakly that changes them stopped twice. Turn the mixer off and on to try again.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apps spielen mit ihrer eigenen Lautstärke: Der Teil von Tweakly, der sie ändert, wurde zweimal beendet. Schalte den Mixer aus und wieder ein, um es erneut zu versuchen."
+            "value": "App-Lautstärken und Equalizer funktionieren nicht: Der Teil von Tweakly, der sie ändert, wurde zweimal beendet. Schalte den Mixer aus und wieder ein, um es erneut zu versuchen."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリは元の音量で再生されています。音量を変更するTweaklyのコンポーネントが2回停止しました。もう一度試すには、ミキサーをオフにしてからオンにしてください。"
+            "value": "アプリごとの音量とイコライザが機能しません。これらを処理するTweaklyのコンポーネントが2回停止しました。もう一度試すには、ミキサーをオフにしてからオンにしてください。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Приложения играют со своей громкостью: часть Tweakly, которая её меняет, дважды остановилась. Выключите и снова включите микшер, чтобы попробовать ещё раз."
+            "value": "Громкость приложений и эквалайзеры не работают: часть Tweakly, которая их меняет, дважды остановилась. Выключите и снова включите микшер, чтобы попробовать ещё раз."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "App会以原始音量播放：Tweakly中负责调整音量的组件已停止两次。请关闭再打开音量合成器以重试。"
+            "value": "App音量和均衡器不可用：Tweakly中负责它们的组件已停止两次。请关闭再打开音量合成器以重试。"
           }
         }
       }
@@ -9817,19 +9817,19 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "音量を変更するTweaklyのコンポーネントが2回停止しました。もう一度試すには、ミキサーをオフにしてからオンにしてください。"
+            "value": "これらを処理するTweaklyのコンポーネントが2回停止しました。もう一度試すには、ミキサーをオフにしてからオンにしてください。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Часть Tweakly, которая её меняет, дважды остановилась. Выключите и снова включите микшер, чтобы попробовать ещё раз."
+            "value": "Часть Tweakly, которая их меняет, дважды остановилась. Выключите и снова включите микшер, чтобы попробовать ещё раз."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tweakly中负责调整App音量的组件已停止两次。请关闭再打开音量合成器以重试。"
+            "value": "Tweakly中负责它们的组件已停止两次。请关闭再打开音量合成器以重试。"
           }
         }
       }
@@ -25118,30 +25118,30 @@
         }
       }
     },
-    "The volume of each app.": {
+    "Each app’s volume and the equalizers.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine eigene Lautstärke für jede App."
+            "value": "Eine eigene Lautstärke für jede App und die Equalizer."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アプリごとの音量。"
+            "value": "アプリごとの音量とイコライザ。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Своя громкость у каждого приложения."
+            "value": "Своя громкость у каждого приложения и эквалайзеры."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "每个App的音量。"
+            "value": "每个App的音量和均衡器。"
           }
         }
       }
@@ -25230,58 +25230,58 @@
         }
       }
     },
-    "macOS changes an app’s volume only through it. Until then apps play as they are.": {
+    "App volumes and equalizers work only with it. Until then sound plays as it is.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nur damit lässt macOS die Lautstärke einzelner Apps ändern. Bis dahin werden Apps unverändert wiedergegeben."
+            "value": "App-Lautstärken und Equalizer funktionieren nur damit. Bis dahin wird der Ton unverändert wiedergegeben."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOSでは、この許可がないとアプリの音量を変更できません。許可されるまで、アプリはそのままの音量で再生されます。"
+            "value": "アプリごとの音量とイコライザは、この許可がある場合にのみ機能します。許可されるまで、音はそのまま再生されます。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS даёт менять громкость приложений только с ним. Пока его нет, приложения играют как есть."
+            "value": "Громкость приложений и эквалайзеры работают только с ним. Пока его нет, звук играет как есть."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS只有通过此权限才能更改App的音量。在此之前，App将按原样播放。"
+            "value": "App音量和均衡器只有在获得此权限后才能使用。在此之前，声音将按原样播放。"
           }
         }
       }
     },
-    "macOS has not allowed Tweakly to record system audio, so apps play at their own volume.": {
+    "macOS has not allowed Tweakly to record system audio, so app volumes and equalizers do not work.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS hat Tweakly die Aufnahme von Systemaudio nicht erlaubt, daher spielen Apps mit ihrer eigenen Lautstärke."
+            "value": "macOS hat Tweakly die Aufnahme von Systemaudio nicht erlaubt, daher funktionieren App-Lautstärken und Equalizer nicht."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOSでTweaklyによるシステムオーディオの録音が許可されていないため、アプリはそれぞれ元の音量で再生されます。"
+            "value": "macOSでTweaklyによるシステムオーディオの録音が許可されていないため、アプリごとの音量とイコライザが機能しません。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS не разрешила Tweakly записывать системный звук, поэтому приложения играют со своей громкостью."
+            "value": "macOS не разрешила Tweakly записывать системный звук, поэтому громкость приложений и эквалайзеры не работают."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS未允许Tweakly进行系统录音，因此App以原始音量播放。"
+            "value": "macOS未允许Tweakly进行系统录音，因此App音量和均衡器不可用。"
           }
         }
       }
