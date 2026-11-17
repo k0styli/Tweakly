@@ -32,6 +32,9 @@ final class VolumeMixerTweak {
     private var options = MixerOptions(showsInput: true, boosts: false)
     /// Only while the person asked for a rule about devices.
     private(set) var deviceRules: AudioDeviceRules?
+    /// The connected outputs an equalizer can be put on, read again only as devices come and go: a slider moved on the
+    /// page asks whether the process is needed many times a second.
+    private var equalizableOutputs: Set<String> = []
 
     init(statusMenu: AppStatusMenu) {
         self.statusMenu = statusMenu
@@ -47,6 +50,7 @@ final class VolumeMixerTweak {
         ) { [weak self] in
             self?.followOutput()
             // An output with an equalizer may have come or gone.
+            self?.readOutputs()
             self?.syncProcess()
         }
         // After the sound server starts again the output may keep its number, but the listeners on it are gone.
@@ -55,6 +59,7 @@ final class VolumeMixerTweak {
         ) { [weak self] in
             self?.outputID = nil
             self?.followOutput()
+            self?.readOutputs()
         }
         // A new start: whatever stopped the process that plays before is worth another try.
         AudioRuleStore.setStopped(false)
@@ -63,6 +68,7 @@ final class VolumeMixerTweak {
             ProcessEvents.observe(.audioRulesChanged) { [weak self] in self?.syncProcess() }
         ]
         followOutput()
+        readOutputs()
         syncProcess()
     }
 
@@ -156,26 +162,30 @@ final class VolumeMixerTweak {
     /// and when.
     private func syncProcess() {
         guard !hasGivenUp else { return }
-        if Self.needsProcess(AudioRuleStore.load()) {
+        if needsProcess(AudioRuleStore.load()) {
             pendingStop?.cancel()
             pendingStop = nil
             startProcess()
         } else if process != nil, pendingStop == nil {
             let stop = DispatchWorkItem { [weak self] in
                 self?.pendingStop = nil
-                if !Self.needsProcess(AudioRuleStore.load()) { self?.stopProcess() }
+                guard let self else { return }
+                if !self.needsProcess(AudioRuleStore.load()) { self.stopProcess() }
             }
             pendingStop = stop
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.stopDelay, execute: stop)
         }
     }
 
-    /// An equalizer kept for an output that is not connected asks for no process.
-    private static func needsProcess(_ book: AudioRuleBook) -> Bool {
+    /// An equalizer kept for an output that is not connected, or one the process never takes whole, a surround one,
+    /// asks for no process.
+    private func needsProcess(_ book: AudioRuleBook) -> Bool {
         if !book.rules.isEmpty { return true }
-        guard !book.outputs.isEmpty else { return false }
-        let connected = Set(AudioSystem.devices(input: false).map(\.uid))
-        return book.outputs.keys.contains(where: connected.contains)
+        return book.outputs.keys.contains(where: equalizableOutputs.contains)
+    }
+
+    private func readOutputs() {
+        equalizableOutputs = Set(AudioSystem.devices(input: false).filter(\.isStereo).map(\.uid))
     }
 
     private func startProcess() {

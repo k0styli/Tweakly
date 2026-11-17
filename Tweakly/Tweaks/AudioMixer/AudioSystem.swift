@@ -12,9 +12,12 @@ struct AudioDevice: Identifiable, Equatable {
     let kind: AudioDeviceKind
     /// Its channels in that direction, all streams together: a surround receiver has more than two.
     var channels = 2
+    /// Its streams in that direction. The rest of an output's sound is taken from its first stream alone.
+    var streams = 1
 
-    /// The mixer's sound is stereo, and taking a surround output whole would fold it down.
-    var isStereo: Bool { channels <= 2 }
+    /// One stream of at most two channels: the mixer's sound is stereo, taking a surround output whole would fold it
+    /// down, and of an output with more streams, the rest would play past the equalizer twice.
+    var isStereo: Bool { channels <= 2 && streams <= 1 }
 }
 
 /// Core Audio's devices, volumes and clients, through public API only. Every call is a property of an audio object,
@@ -34,7 +37,9 @@ nonisolated enum AudioSystem {
             let kind = AudioDeviceKind.of(
                 transport: AudioDeviceKind.code(transport), dataSource: source.map(AudioDeviceKind.code), name: name,
                 isInput: input)
-            return AudioDevice(id: id, uid: uid, name: name, kind: kind, channels: channelCount(of: id, input: input))
+            return AudioDevice(
+                id: id, uid: uid, name: name, kind: kind, channels: channelCount(of: id, input: input),
+                streams: streamCount(of: id, input: input))
         }
     }
 
