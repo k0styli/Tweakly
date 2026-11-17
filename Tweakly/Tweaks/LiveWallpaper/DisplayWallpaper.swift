@@ -79,6 +79,8 @@ final class DisplayWallpaper {
     private var videoLength: CMTime = .invalid
     /// Whether a transition is on screen, so that a second one never starts over it.
     private var isInTransition = false
+    /// Which transition is on screen, so that one cut short does not end the next when its animations finish.
+    private var transitionNumber = 0
     #if TWEAKLY_AUTOMATION
         /// How many transitions have run, for a test to see that they do.
         private(set) var transitionsShown = 0
@@ -190,13 +192,17 @@ final class DisplayWallpaper {
         mode = newMode
         switch newMode {
         case .play:
-            if player == nil {
-                startPlayer()
+            if let player {
+                player.play()
+                catchUpLoop(at: player.currentTime())
             } else {
-                player?.play()
+                startPlayer()
             }
         case .pause:
             player?.pause()
+            // The transition runs on the render server's clock, not the video's: left to run, it would dissolve the
+            // still frame and be over before the loop it was for. Playing again picks it up from where the video is.
+            if isInTransition { endTransition() }
         case .release:
             // A player still being made goes too, or it would appear and be kept through sleep.
             if let player { resumeAt = player.currentTime() }
@@ -293,13 +299,17 @@ final class DisplayWallpaper {
         self.player = player
         self.looper = looper
         playerLayer.player = player
-        if let resumeAt, resumeAt.isValid, resumeAt.seconds > 0 {
-            player.seek(to: resumeAt, toleranceBefore: .zero, toleranceAfter: .zero)
+        let start = resumeAt.flatMap { $0.isValid && $0.seconds > 0 ? $0 : nil }
+        if let start {
+            player.seek(to: start, toleranceBefore: .zero, toleranceAfter: .zero)
         }
         resumeAt = nil
         observeLoop()
         // The mode may have changed while the file loaded.
-        if mode.isPlaying { player.play() }
+        if mode.isPlaying {
+            player.play()
+            catchUpLoop(at: start)
+        }
     }
 
     // MARK: From the end back to the start
@@ -317,6 +327,18 @@ final class DisplayWallpaper {
             [weak self] in
             MainActor.assumeIsolated { self?.loopIsEnding(length: length) }
         }
+    }
+
+    /// A loop whose boundary went by while the video stood still, paused or made anew from where it was, still ends
+    /// softly: what is left of it becomes the transition, ending at the loop as the whole one would.
+    private func catchUpLoop(at time: CMTime?) {
+        guard transition != .none, !isInTransition, let time, time.isValid, videoLength.isValid else { return }
+        let length = transition.length(forVideoOf: videoLength.seconds)
+        let lead = transition.lead(forLength: length)
+        let left = videoLength.seconds - time.seconds
+        // Too little left to show anything, or the boundary still to come.
+        guard lead > 0, left > 0.1, left < lead else { return }
+        loopIsEnding(length: length * left / lead)
     }
 
     /// How long the video stays given way once the loop has come, which covers the boundary arriving a little late.
@@ -339,13 +361,18 @@ final class DisplayWallpaper {
         // The boundary came as early as the chosen transition asked; black stands in for it darkest at the loop itself.
         let delay = max(0, transition.lead(forLength: length) - kind.lead(forLength: length))
         isInTransition = true
+        transitionNumber += 1
+        let number = transitionNumber
         #if TWEAKLY_AUTOMATION
             transitionsShown += 1
         #endif
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         CATransaction.setCompletionBlock { [weak self] in
-            MainActor.assumeIsolated { self?.endTransition() }
+            MainActor.assumeIsolated {
+                guard let self, self.transitionNumber == number else { return }
+                self.endTransition()
+            }
         }
         let begin = CACurrentMediaTime()
         if kind == .fadeToBlack {

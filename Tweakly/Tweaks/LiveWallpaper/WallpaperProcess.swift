@@ -81,6 +81,14 @@ final class WallpaperAppDelegate: NSObject, NSApplicationDelegate {
                     try? data.write(to: URL(fileURLWithPath: path))
                 }
             }
+            // A pause and a start at a moment of the test's choosing, as a rule would make them: `<name>-pause` and
+            // `<name>-play`. The next change of conditions decides again.
+            for (suffix, mode) in [("-pause", PlaybackMode.pause(.battery)), ("-play", .play)] {
+                var modeToken: Int32 = 0
+                notify_register_dispatch(name + suffix, &modeToken, .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.displays.values.forEach { $0.apply(mode) } }
+                }
+            }
         }
     #endif
 
