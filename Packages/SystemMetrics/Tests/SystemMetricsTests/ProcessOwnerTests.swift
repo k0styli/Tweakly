@@ -34,6 +34,8 @@ import Testing
             "WindowServer", "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer",
             parent: 1, user: 88),
         // Parallels: the app is the person's, its service and the virtual machine it starts run as root.
+        // A daemon of root's kept beside the app and started at boot, before the person opened the app.
+        699: identity("prl_naptd", parallels + "/Contents/MacOS/prl_naptd", parent: 1, user: 0),
         700: identity("prl_client_app", parallels + "/Contents/MacOS/prl_client_app", parent: 1),
         701: identity(
             "prl_disp_service", parallels + "/Contents/MacOS/Parallels Service.app/Contents/MacOS/prl_disp_service",
@@ -132,6 +134,9 @@ import Testing
         #expect(owner.bundlePath == Self.parallels)
         #expect(identities.entry(for: owner, pids: [702, 701, 700]).canEnd)
         #expect(!identities.entry(for: owner, pids: [701, 702]).canEnd, "without the app's own process, only signals")
+        // The person's copy of the app names the row, not root's daemon beside it with a lower number.
+        let withDaemon = identities.entry(for: owner, pids: [702, 699, 701, 700])
+        #expect(withDaemon.pid == 700 && withDaemon.canEnd)
     }
 
     /// Simulator and Instruments are apps in their own right, with Dock icons, even though they live inside Xcode.

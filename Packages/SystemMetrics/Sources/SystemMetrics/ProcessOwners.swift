@@ -127,18 +127,25 @@ struct ProcessIdentities {
     /// A row for an owner, given the processes it adds up. The figures are the caller's to fill in.
     mutating func entry(for owner: ProcessOwner, pids: [Int32]) -> ProcessEntry {
         let sorted = pids.sorted()
-        // The app's own process, where it is among them: its number is the one that asks the app to quit.
+        let ownUser = getuid()
+        // The app's own process, where it is among them: its number is the one that asks the app to quit. The person's
+        // copy comes first, ahead of a daemon of root's kept beside it in the same folder and started earlier.
         let bundle = owner.bundlePath
         var headIndex = 0
         var isAppsOwn = false
-        if let bundle, let index = sorted.firstIndex(where: { Self.innermostBundle(of: path(of: $0)) == bundle }) {
-            headIndex = index
-            isAppsOwn = true
+        if let bundle {
+            for index in sorted.indices where Self.innermostBundle(of: path(of: sorted[index])) == bundle {
+                if !isAppsOwn { headIndex = index }
+                isAppsOwn = true
+                if identity(of: sorted[index]).userID == ownUser {
+                    headIndex = index
+                    break
+                }
+            }
         }
         let head = sorted.isEmpty ? 0 : sorted[headIndex]
         var entry = ProcessEntry(
             pid: head, name: name(of: owner), path: sorted.isEmpty ? nil : path(of: head), cpu: 0, memory: 0)
-        let ownUser = getuid()
         let ownPID = getpid()
         var allOwn = !sorted.isEmpty
         entry.members = sorted.map { pid in
