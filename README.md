@@ -82,7 +82,7 @@
   </tr>
 </table>
 
-**Volume Mixer.** The overall volume and output, and for each app that plays, a volume from 0 to 200 % and an output of its own.
+**Volume Mixer.** The overall volume and output, and for each app that plays, a volume from 0 to 200 %, an output and an equalizer of its own. Each output keeps its own equalizer with the presets of Music, and new devices are chosen in the order you set.
 
 **Fans.** Five profiles, a fixed speed or your own curve that follows the sensor you choose, per fan and on battery. On Macs with fans.
 
@@ -101,6 +101,8 @@
   <source media="(prefers-color-scheme: dark)" srcset=".github/images/uninstaller-en-dark.webp">
   <img src=".github/images/uninstaller-en-light.webp" alt="App Uninstaller">
 </picture>
+
+**Battery Health.** The batteries of this Mac, of an iPhone or iPad by cable or Wi‑Fi, of an Apple Watch through its iPhone, and of AirPods, Bluetooth accessories and game controllers. Health is counted as coconutBattery counts it, next to the figure in System Settings, with its history, cycles, capacities, watts and temperatures. A device seen before stays in the list with the date of its data.
 
 **Keyboard Cleaning.** Turns the keyboard off for a while so you can wipe it. The trackpad and mouse keep working.
 
@@ -158,7 +160,7 @@ Tweakly asks for a permission only when you turn on a feature that needs it, nev
 |---|---|
 | Accessibility | Window Switcher, Dock Previews, Mouse (wheel and buttons), Cut in Finder, Language Switch, Keyboard Cleaning |
 | Screen & System Audio Recording | Window previews in Window Switcher and Dock Previews. Without it, tiles show app icons |
-| System Audio Recording Only | A volume for each app in Volume Mixer |
+| System Audio Recording Only | A volume and an equalizer for each app, and the equalizers of outputs, in Volume Mixer |
 | Full Disk Access | App Uninstaller, for the data of App Store apps. Optional |
 | Files & Folders | New File in the Finder menu on the desktop and in Documents and Downloads |
 | Administrator password, once | The helper for fans and for other users' processes in Task Manager |
@@ -171,6 +173,8 @@ Tweakly has no analytics, no accounts and no update server. It goes online in tw
 - The wallpaper browser opens the sites you visit in it.
 
 Pictures and videos from outside are checked and rewritten by a sandboxed helper with no network access before anything else reads them.
+
+Battery Health reads an iPhone or iPad over the cable or the local network, as Finder does, and keeps what it read in a file on this Mac.
 
 ## FAQ
 
@@ -189,6 +193,9 @@ Previews need Screen & System Audio Recording. Allow it on the Permissions page;
 
 **There's no Fans page.**
 It appears only on Macs with fans. The MacBook Air has none.
+
+**Battery Health shows less than System Settings.**
+It counts as coconutBattery does: what a full charge gives now against what the battery was designed for. System Settings count what the battery holds and smooth it over time, so they usually show a few percent more. The page shows both figures and why they differ.
 
 **Why only macOS 26 and Apple silicon?**
 Tweakly is built from macOS 26's own components, Liquid Glass among them, and reads the sensors and the core layout of Apple silicon.

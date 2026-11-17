@@ -82,7 +82,7 @@
   </tr>
 </table>
 
-**Lautstärkemixer.** Die Gesamtlautstärke und die Ausgabe, dazu für jede App, die gerade spielt, eine eigene Lautstärke von 0 bis 200 % und eine eigene Ausgabe.
+**Lautstärkemixer.** Die Gesamtlautstärke und die Ausgabe, dazu für jede App, die gerade spielt, eine eigene Lautstärke von 0 bis 200 %, eine eigene Ausgabe und ein eigener Equalizer. Jede Ausgabe hat ihren eigenen Equalizer mit den Voreinstellungen von Musik, und neue Geräte werden in der von dir festgelegten Reihenfolge gewählt.
 
 **Lüfter.** Fünf Profile, eine feste Drehzahl oder eine eigene Kurve nach dem Sensor deiner Wahl, je Lüfter und für den Batteriebetrieb. Auf Macs mit Lüftern.
 
@@ -101,6 +101,8 @@
   <source media="(prefers-color-scheme: dark)" srcset=".github/images/uninstaller-en-dark.webp">
   <img src=".github/images/uninstaller-en-light.webp" alt="App-Deinstallation">
 </picture>
+
+**Batteriezustand.** Die Batterien dieses Mac, eines iPhone oder iPad per Kabel oder WLAN, einer Apple Watch über ihr iPhone sowie von AirPods, Bluetooth-Zubehör und Spielecontrollern. Der Zustand wird wie bei coconutBattery berechnet, neben dem Wert aus den Systemeinstellungen, mit Verlauf, Zyklen, Kapazitäten, Watt und Temperaturen. Ein Gerät, das schon einmal da war, bleibt mit dem Datum seiner Daten in der Liste.
 
 **Tastaturreinigung.** Schaltet die Tastatur eine Weile aus, damit du sie abwischen kannst. Trackpad und Maus funktionieren weiter.
 
@@ -158,7 +160,7 @@ Tweakly fragt nach einer Berechtigung nur, wenn du eine Funktion einschaltest, d
 |---|---|
 | Bedienungshilfen | Fensterumschalter, Dock-Vorschauen, Maus (Rad und Tasten), Ausschneiden im Finder, Sprachwechsel, Tastaturreinigung |
 | Aufnahme von Bildschirm & Systemaudio | Fenstervorschauen im Fensterumschalter und in den Dock-Vorschauen. Ohne sie zeigen die Kacheln App-Symbole |
-| Nur Aufnahme von Systemaudio | Eine eigene Lautstärke für jede App im Lautstärkemixer |
+| Nur Aufnahme von Systemaudio | Eine eigene Lautstärke und ein Equalizer für jede App sowie die Equalizer der Ausgaben im Lautstärkemixer |
 | Festplattenvollzugriff | App-Deinstallation, für die Daten von Apps aus dem App Store. Optional |
 | Dateien & Ordner | „Neue Datei“ im Finder-Menü auf dem Schreibtisch und in „Dokumente“ und „Downloads“ |
 | Administratorpasswort, einmal | Das Hilfsprogramm für die Lüfter und für Prozesse anderer Benutzer im Task-Manager |
@@ -171,6 +173,8 @@ Tweakly hat keine Analyse, keine Accounts und keinen Update-Server. Online geht 
 - Der Hintergrundbild-Browser öffnet die Websites, die du darin besuchst.
 
 Bilder und Videos von außen prüft ein Hilfsprogramm in einer Sandbox ohne Netzwerkzugang und schreibt sie neu, bevor irgendetwas anderes sie liest.
+
+Batteriezustand liest iPhone und iPad per Kabel oder über das lokale Netzwerk, wie der Finder, und speichert das Gelesene in einer Datei auf diesem Mac.
 
 ## Häufige Fragen
 
@@ -189,6 +193,9 @@ Vorschauen brauchen „Aufnahme von Bildschirm & Systemaudio“. Erteile sie auf
 
 **Es gibt keine Seite „Lüfter“.**
 Sie erscheint nur auf Macs mit Lüftern. Das MacBook Air hat keine.
+
+**Batteriezustand zeigt weniger als die Systemeinstellungen.**
+Er rechnet wie coconutBattery: was eine volle Ladung jetzt liefert, verglichen mit der Nennkapazität. Die Systemeinstellungen berechnen, wie viel die Batterie aufnehmen kann, und glätten den Wert über die Zeit, daher zeigen sie meist einige Prozent mehr. Die Seite zeigt beide Werte und warum sie abweichen.
 
 **Warum nur macOS 26 und Apple silicon?**
 Tweakly besteht aus den Komponenten von macOS 26, darunter Liquid Glass, und liest die Sensoren und den Aufbau der Kerne von Apple silicon.
