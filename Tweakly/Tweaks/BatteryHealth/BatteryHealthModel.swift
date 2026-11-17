@@ -7,8 +7,8 @@ import os
 /// The Battery Health page: every battery seen on this Mac, read while the page shows and kept afterwards. It lives in
 /// the window's process, which exits when the window closes, so nothing here costs the agent anything.
 ///
-/// While the page is on screen: this Mac and accessories whenever the system says a power source changed, and every
-/// 5 seconds only while this Mac's own page shows its watts; iPhones and iPads every 30 seconds over a session kept open,
+/// While the page is on screen: this Mac and accessories whenever the system says a power source changed, game
+/// controllers as they connect and every 30 seconds, this Mac every 5 seconds only while its own page shows its watts; iPhones and iPads every 30 seconds over a session kept open,
 /// about 7 million instructions a read, where setting a session up costs 260 million.
 @Observable final class BatteryHealthModel {
     /// A device that is connected but could not be read, under a digest of its identifier.
@@ -24,8 +24,10 @@ import os
 
     private(set) var archive = BatteryArchive()
     /// The figures that change with every read, kept apart from the archive so that only the rows showing them are drawn
-    /// again: the whole page laid out anew every 5 seconds cost the window about 0.8 % of the processor.
+    /// again: the whole page laid out anew every 5 seconds cost the window about 0.8 % of the processor. The watts and
+    /// the temperature, which this Mac's page reads every 5 seconds, are apart again, so that they draw only their rows.
     private(set) var live: [String: BatteryReading] = [:]
+    private(set) var livePower: [String: PowerFigures] = [:]
     /// Devices connected now, this Mac included while it has a battery.
     private(set) var connected: Set<String> = []
     private(set) var unreadable: [String: Unreadable] = [:]
@@ -46,6 +48,7 @@ import os
     @ObservationIgnored private var lastRead: [String: Date] = [:]
     @ObservationIgnored private let reader = BatteryHealthReader()
     @ObservationIgnored private var mobile: MobileDevices?
+    @ObservationIgnored private var controllers: GameControllerBatteries?
     @ObservationIgnored private var changes: PowerSourceChanges?
     @ObservationIgnored private var macTimer: Timer?
     @ObservationIgnored private var mobileTimer: Timer?
@@ -60,10 +63,16 @@ import os
 
     var mac: KnownDevice? { archive[DeviceIdentity.thisMac] }
 
-    /// Connected devices first, each group in the order they were first seen; this Mac is shown on its own.
+    /// Connected devices by kind, phones first and controllers last, as the system's Batteries widget lists them; those
+    /// away by when they were last read. This Mac is shown on its own.
     var others: (connected: [KnownDevice], away: [KnownDevice]) {
         let devices = archive.devices.filter { $0.id != DeviceIdentity.thisMac }
-        let now = devices.filter { connected.contains($0.id) }
+        let order = DeviceKind.allCases
+        let now = devices.filter { connected.contains($0.id) }.sorted {
+            let first = order.firstIndex(of: $0.kind) ?? order.count
+            let second = order.firstIndex(of: $1.kind) ?? order.count
+            return first != second ? first < second : $0.name.localizedStandardCompare($1.name) == .orderedAscending
+        }
         let away = devices.filter { !connected.contains($0.id) }.sorted { $0.latest.date > $1.latest.date }
         return (now, away)
     }
@@ -96,6 +105,7 @@ import os
 
     func forget(_ id: String) {
         live[id] = nil
+        livePower[id] = nil
         archive.forget(id)
         save(now: true)
     }
@@ -123,6 +133,12 @@ import os
                 return
             }
         #endif
+        #if TWEAKLY_AUTOMATION
+            let skipsControllers = UserDefaults.standard.bool(forKey: "measureWithoutControllers")
+        #else
+            let skipsControllers = false
+        #endif
+        if !skipsControllers { controllers = GameControllerBatteries { [weak self] in self?.refreshControllers() } }
         if let mobile {
             mobile.resume()
         } else {
@@ -136,6 +152,8 @@ import os
 
     private func stop() {
         setPolling(false)
+        controllers?.stop()
+        controllers = nil
         // Kept for the window's life: see `MobileDevices.pause`.
         mobile?.pause()
         reader.close()
@@ -156,7 +174,11 @@ import os
                 MainActor.assumeIsolated { self?.readMac(fresh: true) }
             }
             mobile?.refresh()
-            mobileTimer = repeating(Self.mobileInterval) { $0.mobile?.refresh() }
+            // Game controllers have no notice for their charge, so they are read with the phones.
+            mobileTimer = repeating(Self.mobileInterval) { model in
+                model.mobile?.refresh()
+                model.refreshControllers()
+            }
         } else {
             changes = nil
             mobileTimer?.invalidate()
@@ -222,11 +244,36 @@ import os
                     reading: accessory.reading))
             seen.insert(id)
         }
+        for controller in controllers?.read(now: Date()) ?? [] {
+            record(controller)
+            seen.insert(controller.id)
+        }
         // Everything read here is connected exactly when it was listed; iPhones and watches keep their own state.
         let mobile = Set(mobileIDs.values).union(watchIDs)
         let now = seen.union(connected.intersection(mobile))
         markRead(connected.subtracting(now))
         if now != connected { connected = now }
+    }
+
+    /// Game controllers alone, as they come and go and every 30 seconds: this Mac is read when the system says it changed.
+    private func refreshControllers() {
+        guard isActive, let controllers else { return }
+        let found = controllers.read(now: Date())
+        for controller in found { record(controller) }
+        let ids = Set(found.map(\.id))
+        let gone = connected.filter { $0.hasPrefix(Self.controllerPrefix) && !ids.contains($0) }
+        markRead(gone)
+        let now = connected.subtracting(gone).union(ids)
+        if now != connected { connected = now }
+    }
+
+    private static let controllerPrefix = "controller:"
+
+    private func record(_ controller: GameControllerBatteries.Controller) {
+        record(
+            KnownDevice(
+                id: controller.id, kind: .gameController, name: controller.name, vendorID: controller.vendorID,
+                productID: controller.productID, connection: controller.connection, reading: controller.reading))
     }
 
     /// Watches are connected while the iPhone they were read through is.
@@ -294,7 +341,12 @@ import os
     private func record(_ device: KnownDevice) {
         let before = archive[device.id]
         lastRead[device.id] = device.latest.date
-        if live[device.id] != device.latest { live[device.id] = device.latest }
+        let power = PowerFigures(device.latest)
+        if livePower[device.id] != power { livePower[device.id] = power }
+        // The rest of the reading only when something other than the watts moved.
+        if live[device.id].map({ PowerFigures.without($0) != PowerFigures.without(device.latest) }) ?? true {
+            live[device.id] = device.latest
+        }
         if let before, Self.onlyLiveChanged(from: before, to: device) { return }
         archive.record(device)
         let isNew = before == nil
@@ -326,6 +378,9 @@ import os
         lasting.voltage = nil
         lasting.current = nil
         lasting.cellVoltages = nil
+        // They move with every registry update; the list shows neither, and the charge rows read them live.
+        lasting.remainingCapacity = nil
+        lasting.minutesRemaining = nil
         return lasting
     }
 
@@ -398,5 +453,42 @@ enum BatteryHealthStore {
         } catch {
             log.error("The battery archive could not be saved: \(error.localizedDescription, privacy: .public)")
         }
+    }
+}
+
+/// What changes from second to second: the watts through a battery and its temperature.
+struct PowerFigures: Equatable {
+    var systemPower: Double?
+    var batteryPower: Double?
+    var adapterPower: Double?
+    var powerToAccessories: Double?
+    var temperature: Double?
+
+    init(_ reading: BatteryReading) {
+        systemPower = reading.systemPower
+        batteryPower = reading.batteryPower
+        adapterPower = reading.adapterPower
+        powerToAccessories = reading.powerToAccessories
+        temperature = reading.temperature
+    }
+
+    /// The reading with these figures and the time left out, to tell whether anything else changed.
+    static func without(_ reading: BatteryReading) -> BatteryReading {
+        var rest = reading
+        rest.date = .distantPast
+        rest.systemPower = nil
+        rest.batteryPower = nil
+        rest.adapterPower = nil
+        rest.powerToAccessories = nil
+        rest.temperature = nil
+        return rest
+    }
+
+    func apply(to reading: inout BatteryReading) {
+        reading.systemPower = systemPower
+        reading.batteryPower = batteryPower
+        reading.adapterPower = adapterPower
+        reading.powerToAccessories = powerToAccessories
+        reading.temperature = temperature
     }
 }

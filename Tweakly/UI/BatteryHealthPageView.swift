@@ -47,7 +47,7 @@ struct BatteryHealthPageView: View {
                 Section {
                 } footer: {
                     Text(
-                        "iPhone and iPad appear by cable or on the same Wi‑Fi, Apple Watch through its iPhone, AirPods and accessories while connected by Bluetooth."
+                        "iPhone and iPad appear by cable or on the same Wi‑Fi, Apple Watch through its iPhone, headphones, accessories and game controllers while connected. Devices with a USB receiver of their own tell their charge only to their maker’s app."
                     )
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -250,10 +250,19 @@ private struct HowToAddDevices: View {
                 symbol: "applewatch", title: Text("Apple Watch"),
                 detail: Text("Appears with the iPhone it is paired with, while that iPhone is connected."))
             hint(
-                symbol: "airpods.pro", title: Text("AirPods and Accessories"),
-                detail: Text("Appear while they are connected to this Mac by Bluetooth."))
+                symbol: "headphones", title: Text("Headphones and Accessories"),
+                detail: Text(
+                    "AirPods, Beats, Magic Mouse, Keyboard and Trackpad, and other Bluetooth devices that tell macOS their charge, while they are connected."
+                ))
+            hint(
+                symbol: "gamecontroller", title: Text("Game Controllers"),
+                detail: Text("PlayStation, Xbox, Nintendo Switch Pro and MFi controllers, by Bluetooth or by cable."))
         } header: {
             Text("Other Devices")
+        } footer: {
+            Text("Mice and keyboards with a USB receiver of their own tell their charge only to their maker’s app.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 

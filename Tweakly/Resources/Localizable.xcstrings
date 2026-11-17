@@ -1853,30 +1853,30 @@
         }
       }
     },
-    "AirPods and Accessories": {
+    "AirPods, Beats, Magic Mouse, Keyboard and Trackpad, and other Bluetooth devices that tell macOS their charge, while they are connected.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "AirPods und Zubehör"
+            "value": "AirPods, Beats, Magic Mouse, Keyboard und Trackpad sowie andere Bluetooth-Geräte, die macOS ihren Ladezustand mitteilen, solange sie verbunden sind."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "AirPodsとアクセサリ"
+            "value": "AirPods、Beats、Magic Mouse、Keyboard、Trackpad、およびmacOSに充電残量を知らせるそのほかのBluetoothデバイスが、接続している間に表示されます。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "AirPods и аксессуары"
+            "value": "AirPods, Beats, Magic Mouse, Keyboard и Trackpad и другие устройства Bluetooth, которые сообщают macOS свой заряд, пока они подключены."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "AirPods和配件"
+            "value": "AirPods、Beats、妙控鼠标、妙控键盘和妙控板，以及其他向macOS报告电量的蓝牙设备，在连接时显示。"
           }
         }
       }
@@ -2073,34 +2073,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "App音量和均衡器不可用"
-          }
-        }
-      }
-    },
-    "Appear while they are connected to this Mac by Bluetooth.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erscheinen, solange sie per Bluetooth mit diesem Mac verbunden sind."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このMacにBluetoothで接続している間に表示されます。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Появляются, пока подключены к этому Mac по Bluetooth."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "通过蓝牙连接到这台Mac时显示。"
           }
         }
       }
@@ -2579,34 +2551,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "电池状态"
-          }
-        }
-      }
-    },
-    "Battery Details…": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Batteriedetails …"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "バッテリーの詳細…"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Подробнее об аккумуляторе…"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "电池详细信息…"
           }
         }
       }
@@ -3152,30 +3096,30 @@
         }
       }
     },
-    "Cells": {
+    "Cell %lld": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Zellen"
+            "value": "Zelle %lld"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "セル"
+            "value": "セル%lld"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Элементы"
+            "value": "Элемент %lld"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "电芯"
+            "value": "电芯%lld"
           }
         }
       }
@@ -6620,6 +6564,34 @@
         }
       }
     },
+    "Game Controllers": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spielecontroller"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲームコントローラ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Игровые контроллеры"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "游戏控制器"
+          }
+        }
+      }
+    },
     "Gauge": {
       "localizations": {
         "de": {
@@ -6784,6 +6756,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "图形处理器，最高温"
+          }
+        }
+      }
+    },
+    "Headphones and Accessories": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopfhörer und Zubehör"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヘッドフォンとアクセサリ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наушники и аксессуары"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "耳机和配件"
           }
         }
       }
@@ -7544,30 +7544,30 @@
         }
       }
     },
-    "iPhone and iPad appear by cable or on the same Wi‑Fi, Apple Watch through its iPhone, AirPods and accessories while connected by Bluetooth.": {
+    "iPhone and iPad appear by cable or on the same Wi‑Fi, Apple Watch through its iPhone, headphones, accessories and game controllers while connected. Devices with a USB receiver of their own tell their charge only to their maker’s app.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone und iPad erscheinen per Kabel oder im selben WLAN, die Apple Watch über ihr iPhone, AirPods und Zubehör, solange sie per Bluetooth verbunden sind."
+            "value": "iPhone und iPad erscheinen per Kabel oder im selben WLAN, die Apple Watch über ihr iPhone, Kopfhörer, Zubehör und Spielecontroller, solange sie verbunden sind. Geräte mit eigenem USB-Empfänger melden ihren Ladezustand nur an die App ihres Herstellers."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhoneとiPadはケーブルまたは同じWi‑Fi経由で、Apple WatchはペアリングしているiPhone経由で、AirPodsとアクセサリはBluetoothで接続している間に表示されます。"
+            "value": "iPhoneとiPadはケーブルまたは同じWi‑Fi経由で、Apple WatchはペアリングしているiPhone経由で、ヘッドフォン、アクセサリ、ゲームコントローラは接続している間に表示されます。専用のUSBレシーバを使うデバイスは、メーカーのAppにしか充電残量を知らせません。"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone и iPad появляются по кабелю или в той же сети Wi‑Fi, Apple Watch — через свой iPhone, AirPods и аксессуары — пока подключены по Bluetooth."
+            "value": "iPhone и iPad появляются по кабелю или в той же сети Wi‑Fi, Apple Watch — через свой iPhone, наушники, аксессуары и игровые контроллеры — пока подключены. Устройства со своим USB-приёмником сообщают заряд только приложению своего производителя."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "iPhone和iPad通过线缆或同一Wi‑Fi显示，Apple Watch通过其iPhone显示，AirPods和配件在通过蓝牙连接时显示。"
+            "value": "iPhone和iPad通过线缆或同一Wi‑Fi显示，Apple Watch通过其iPhone显示，耳机、配件和游戏控制器在连接时显示。使用自带USB接收器的设备只向其制造商的App报告电量。"
           }
         }
       }
@@ -8602,34 +8602,6 @@
         }
       }
     },
-    "Manufacturer": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hersteller"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "製造元"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Производитель"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "制造商"
-          }
-        }
-      }
-    },
     "Maximum Capacity": {
       "localizations": {
         "de": {
@@ -8778,6 +8750,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "未包含的指标会保留各自的图标（如果已打开）。"
+          }
+        }
+      }
+    },
+    "Mice and keyboards with a USB receiver of their own tell their charge only to their maker’s app.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mäuse und Tastaturen mit eigenem USB-Empfänger melden ihren Ladezustand nur an die App ihres Herstellers."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "専用のUSBレシーバを使うマウスやキーボードは、メーカーのAppにしか充電残量を知らせません。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мыши и клавиатуры со своим USB-приёмником сообщают заряд только приложению своего производителя."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用自带USB接收器的鼠标和键盘只向其制造商的App报告电量。"
           }
         }
       }
@@ -10026,6 +10026,34 @@
         }
       }
     },
+    "PlayStation, Xbox, Nintendo Switch Pro and MFi controllers, by Bluetooth or by cable.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controller für PlayStation, Xbox, Nintendo Switch Pro und MFi, per Bluetooth oder Kabel."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PlayStation、Xbox、Nintendo Switch Pro、MFiのコントローラが、Bluetoothまたはケーブルで接続している間に表示されます。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Контроллеры PlayStation, Xbox, Nintendo Switch Pro и MFi, по Bluetooth или кабелем."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PlayStation、Xbox、Nintendo Switch Pro和MFi控制器，通过蓝牙或线缆连接。"
+          }
+        }
+      }
+    },
     "Point": {
       "localizations": {
         "de": {
@@ -10554,34 +10582,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "配置"
-          }
-        }
-      }
-    },
-    "Rated Power": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nennleistung"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "定格出力"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Номинальная мощность"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "额定功率"
           }
         }
       }
@@ -13479,6 +13479,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "更新…"
+          }
+        }
+      }
+    },
+    "Vendor and Product ID": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hersteller- und Produkt-ID"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ベンダIDと製品ID"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Коды производителя и модели"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "供应商ID和产品ID"
           }
         }
       }
@@ -18601,34 +18629,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "写入"
-          }
-        }
-      }
-    },
-    "Yes": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ja"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "はい"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Да"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "是"
           }
         }
       }

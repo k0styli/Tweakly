@@ -53,6 +53,7 @@ enum DeviceArt {
         case .headphones:
             device.name.localizedCaseInsensitiveContains("max")
                 ? "airpodsmax" : device.name.localizedCaseInsensitiveContains("pro") ? "airpods.pro" : "headphones"
+        case .speaker: "hifispeaker"
         case .mouse: "magicmouse"
         case .keyboard: "keyboard"
         case .trackpad: "rectangle.and.hand.point.up.left"

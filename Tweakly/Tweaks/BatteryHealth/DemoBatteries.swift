@@ -13,7 +13,9 @@
         private static var now: Date { Date() }
 
         static var connected: Set<String> {
-            var ids: Set<String> = ["ios:demo-iphone", "watch:demo-watch", "accessory:demo-airpods"]
+            var ids: Set<String> = [
+                "ios:demo-iphone", "watch:demo-watch", "accessory:demo-airpods", "controller:demo-dualsense",
+            ]
             if chosen != "desktop" { ids.insert(DeviceIdentity.thisMac) } else { ids.insert("ups:demo-ups") }
             if chosen == "many" { ids.formUnion(["accessory:demo-keyboard", "accessory:demo-trackpad"]) }
             if chosen == "empty" { return [DeviceIdentity.thisMac] }
@@ -37,7 +39,7 @@
             var devices: [KnownDevice] = []
             if chosen != "desktop" { devices.append(mac()) }
             guard chosen != "empty" else { return BatteryArchive(devices: devices) }
-            devices += [iPhone(), watch(), airPods(), iPad(), mouse()]
+            devices += [iPhone(), watch(), airPods(), controller(), iPad(), mouse()]
             if chosen == "desktop" { devices.append(ups()) }
             if chosen == "many" { devices += extras() }
             return BatteryArchive(devices: devices)
@@ -152,6 +154,16 @@
                 connection: .bluetooth, reading: reading)
         }
 
+        /// Sony's DualSense by Bluetooth, read through GameController as a real one is.
+        private static func controller() -> KnownDevice {
+            var reading = BatteryReading(date: now)
+            reading.percent = 54
+            reading.state = .discharging
+            return KnownDevice(
+                id: "controller:demo-dualsense", kind: .gameController, name: "DualSense Wireless Controller",
+                vendorID: 0x054C, productID: 0x0CE6, connection: .bluetooth, reading: reading)
+        }
+
         private static func mouse() -> KnownDevice {
             var reading = BatteryReading(date: now.addingTimeInterval(-16 * day))
             reading.percent = 41
@@ -175,7 +187,8 @@
                 ("accessory:demo-trackpad", .trackpad, "Magic Trackpad", nil, 52, 0),
                 ("ios:demo-old-iphone", .iPhone, "iPhone 13", nil, 33, 210 * day),
                 ("ios:demo-ipod", .iPod, "iPod touch", nil, 90, 400 * day),
-                ("accessory:demo-controller", .gameController, "DualSense Wireless Controller", nil, 20, 30 * day),
+                ("controller:demo-dualshock", .gameController, "DUALSHOCK 4 Wireless Controller", nil, 20, 30 * day),
+                ("accessory:demo-speaker", .speaker, "JBL Flip 6", nil, 70, 2 * day),
                 ("accessory:demo-beats", .headphones, "Beats Studio Pro", 8215, 66, 5 * day),
             ]
             return made.map { id, kind, name, product, percent, age in

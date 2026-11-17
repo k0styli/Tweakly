@@ -3,13 +3,13 @@ import Charts
 import SwiftUI
 import SystemMetrics
 
-/// One device's battery: its health with how it went over time, its charge, the power going through it while
-/// connected, and the rest in a sheet. A device that is not connected shows what was read last and when.
+/// One device's battery, everything on one page as the owner asked: its health and capacities, how health went over
+/// time, its charge, the power going through it while connected, the electrical figures, the gauge's record since the
+/// battery was made, and the device itself. A device that is not connected shows what was read last and when.
 struct BatteryDevicePageView: View {
     let model: BatteryHealthModel
     let id: String
     @Environment(MainRouter.self) private var router
-    @State private var showsDetails = false
     @State private var asksToForget = false
 
     var body: some View {
@@ -34,16 +34,25 @@ struct BatteryDevicePageView: View {
             }
             if device.kind.reportsCapacity {
                 HealthSection(device: device)
+                CapacitySection(reading: reading)
                 HistorySection(device: device)
             }
-            ChargeSection(device: device, isConnected: isConnected, note: Self.note(for: device.kind))
+            ChargeSection(
+                model: model, device: device, isConnected: isConnected, note: Self.note(for: device.kind))
             if isConnected, device.kind.reportsCapacity {
                 PowerSection(model: model, id: id, fallback: reading)
             }
-            Section {
+            if device.kind.reportsCapacity {
+                ElectricalSection(model: model, id: id, fallback: reading, isConnected: isConnected)
+                if let lifetime = reading.lifetime {
+                    LifetimeSection(lifetime: lifetime, date: reading.date)
+                }
             }
-            .sectionActions {
-                if device.kind != .mac {
+            DeviceSection(device: device)
+            if device.kind != .mac {
+                Section {
+                }
+                .sectionActions {
                     // A connected device would be read again at once.
                     Button("Forget This Device…") { asksToForget = true }
                         .disabled(isConnected)
@@ -52,15 +61,9 @@ struct BatteryDevicePageView: View {
                                 ? Text("Disconnect it first: a connected device is read again.")
                                 : Text("Removes its battery data and history from this Mac."))
                 }
-                if device.kind.reportsCapacity {
-                    Button("Battery Details…") { showsDetails = true }
-                }
             }
         }
         .formStyle(.grouped)
-        .sheet(isPresented: $showsDetails) {
-            BatteryDetailsSheet(model: model, device: device)
-        }
         .confirmationDialog(
             Text("Forget “\(BatteryText.title(of: device))”?"), isPresented: $asksToForget, titleVisibility: .visible
         ) {
@@ -77,7 +80,7 @@ struct BatteryDevicePageView: View {
         switch kind {
         case .watch:
             String(localized: "The iPhone passes on only the charge of the Apple Watch paired with it.")
-        case .headphones, .mouse, .keyboard, .trackpad, .gameController, .other:
+        case .headphones, .speaker, .mouse, .keyboard, .trackpad, .gameController, .other:
             String(localized: "Accessories report only their charge, not their capacity or cycle count.")
         case .ups:
             String(localized: "A UPS reports its charge and how long it can run.")
@@ -374,12 +377,14 @@ private struct HealthChart: View {
 
 /// The charge, what the battery is doing, and for how long.
 private struct ChargeSection: View {
+    let model: BatteryHealthModel
     let device: KnownDevice
     let isConnected: Bool
     let note: String?
 
     var body: some View {
-        let reading = device.latest
+        // Live while connected: the remaining capacity and time change with every read, and only these rows need them.
+        let reading = isConnected ? model.live[device.id] ?? device.latest : device.latest
         Section {
             if !reading.parts.isEmpty {
                 ForEach(reading.parts, id: \.role) { part in
@@ -480,9 +485,13 @@ private struct PowerSection: View {
     }
 
     var body: some View {
-        let reading = model.live[id] ?? fallback
-        if Self.hasContent(reading) {
-            section(reading)
+        // The watts alone are read live here: the rest of the reading changes far less often.
+        var reading = fallback
+        model.livePower[id]?.apply(to: &reading)
+        return Group {
+            if Self.hasContent(reading) {
+                section(reading)
+            }
         }
     }
 
@@ -510,7 +519,8 @@ private struct PowerSection: View {
                     }
                 } label: {
                     Text(BatteryText.adapterTitle)
-                    Text(BatteryText.adapter(adapter))
+                    if let name = BatteryText.adapter(adapter) { Text(name) }
+                    if let rating = BatteryText.adapterRating(adapter) { Text(rating) }
                 }
             }
             if let accessories = reading.powerToAccessories, accessories >= 0.05 {
@@ -531,93 +541,123 @@ private struct PowerSection: View {
     }
 }
 
-/// What a battery reports beyond the page, for those who want the numbers: capacities, electrical figures, the
-/// gauge's lifetime record and the adapter.
-private struct BatteryDetailsSheet: View {
-    let model: BatteryHealthModel
-    let device: KnownDevice
+/// The capacities health and the system's figure come from, each with what it means.
+private struct CapacitySection: View {
+    let reading: BatteryReading
 
     var body: some View {
-        let reading = model.isConnected(device.id) ? model.live[device.id] ?? device.latest : device.latest
-        DetailsSheet(height: 560) {
+        Section {
+            FigureRow(title: "Design Capacity", value: reading.designCapacity.map(BatteryFormat.milliampHours))
+            FigureRow(
+                title: "Full Charge Capacity", value: reading.fullChargeCapacity.map(BatteryFormat.milliampHours),
+                detail: "What a full charge gives now. Health is counted from it.")
+            FigureRow(
+                title: "Nominal Capacity", value: reading.nominalChargeCapacity.map(BatteryFormat.milliampHours),
+                detail: "What the battery holds when full, smoothed over time.")
+            FigureRow(title: "Remaining Capacity", value: reading.remainingCapacity.map(BatteryFormat.milliampHours))
+        } header: {
+            Text("Capacity")
+        }
+    }
+}
+
+/// Voltage and current as they change, each cell, and the gauge chip. Like the power rows, it reads the live figures
+/// itself so that only these rows are drawn again.
+private struct ElectricalSection: View {
+    let model: BatteryHealthModel
+    let id: String
+    let fallback: BatteryReading
+    let isConnected: Bool
+
+    var body: some View {
+        let reading = isConnected ? model.live[id] ?? fallback : fallback
+        if reading.voltage != nil || reading.current != nil || reading.cellVoltages != nil || reading.gauge != nil {
             Section {
-                optional("Design Capacity", reading.designCapacity.map(BatteryFormat.milliampHours))
-                optional(
-                    "Full Charge Capacity", reading.fullChargeCapacity.map(BatteryFormat.milliampHours),
-                    detail: "What a full charge gives now. Health is counted from it.")
-                optional(
-                    "Nominal Capacity", reading.nominalChargeCapacity.map(BatteryFormat.milliampHours),
-                    detail: "What the battery holds when full, smoothed over time.")
-                optional("Remaining Capacity", reading.remainingCapacity.map(BatteryFormat.milliampHours))
-            } header: {
-                Text("Capacity")
-            }
-            Section {
-                optional("Voltage", reading.voltage.map(BatteryFormat.volts))
-                optional("Current", reading.current.map(BatteryFormat.amps))
+                FigureRow(title: "Voltage", value: reading.voltage.map(BatteryFormat.volts))
+                FigureRow(title: "Current", value: reading.current.map(BatteryFormat.amps))
                 if let cells = reading.cellVoltages {
-                    LabeledContent("Cells") {
-                        Text(cells.map(BatteryFormat.cellVolts).formatted(.list(type: .and, width: .narrow)))
-                            .monospacedDigit()
+                    ForEach(cells.indices, id: \.self) { index in
+                        LabeledContent {
+                            Text(BatteryFormat.cellVolts(cells[index])).monospacedDigit()
+                        } label: {
+                            Text("Cell \(index + 1)", comment: "One cell of a battery, by its number")
+                        }
                     }
                 }
-                optional("Gauge", reading.gauge)
+                FigureRow(title: "Gauge", value: reading.gauge)
             } header: {
                 Text("Electrical")
             }
-            if let lifetime = reading.lifetime {
-                Section {
-                    optional("Highest Temperature", lifetime.highestTemperature.map(BatteryFormat.temperature))
-                    optional("Lowest Temperature", lifetime.lowestTemperature.map(BatteryFormat.temperature))
-                    optional("Average Temperature", lifetime.averageTemperature.map(BatteryFormat.temperature))
-                    optional("Highest Charging Current", lifetime.highestChargeCurrent.map(BatteryFormat.amps))
-                    optional("Highest Discharging Current", lifetime.highestDischargeCurrent.map(BatteryFormat.amps))
-                    optional("Highest Voltage", lifetime.highestVoltage.map(BatteryFormat.volts))
-                    optional("Lowest Voltage", lifetime.lowestVoltage.map(BatteryFormat.volts))
-                    if let hours = lifetime.operatingHours {
-                        LabeledContent {
-                            Text(BatteryFormat.hours(hours))
-                                .monospacedDigit()
-                        } label: {
-                            Text("Gauge Running Time")
-                            Text(
-                                "Counted since \(PackParser.gaugeStart(operatingHours: hours, at: reading.date).formatted(.dateTime.month(.wide).year())), when the battery’s gauge was first powered.",
-                                comment: "Under the hours a battery's gauge has counted; the month and year it started")
-                        }
-                    }
-                } header: {
-                    Text("Since It Was Made")
-                }
-            }
-            if let adapter = reading.adapter {
-                Section {
-                    optional("Name", adapter.name)
-                    optional("Manufacturer", adapter.manufacturer)
-                    optional("Rated Power", adapter.watts.map(BatteryFormat.ratedWatts))
-                    optional("Voltage", adapter.voltage.map(BatteryFormat.volts))
-                    optional("Current", adapter.current.map(BatteryFormat.amps))
-                    if adapter.isWireless { LabeledContent("Wireless") { Text("Yes") } }
-                } header: {
-                    Text(BatteryText.adapterTitle)
-                }
-            }
-            Section {
-                optional("Model Identifier", device.model)
-                LabeledContent("First Read") {
-                    Text(device.firstSeen.formatted(date: .abbreviated, time: .omitted))
-                }
-                LabeledContent("Last Read") {
-                    Text(reading.date.formatted(date: .abbreviated, time: .shortened))
-                }
-            } header: {
-                Text("Device")
-            }
         }
     }
+}
 
-    @ViewBuilder private func optional(_ title: LocalizedStringKey, _ value: String?, detail: LocalizedStringKey? = nil)
-        -> some View
-    {
+/// The extremes the battery's gauge has kept, and how long it has been counting.
+private struct LifetimeSection: View {
+    let lifetime: BatteryLifetime
+    let date: Date
+
+    var body: some View {
+        Section {
+            FigureRow(title: "Highest Temperature", value: lifetime.highestTemperature.map(BatteryFormat.temperature))
+            FigureRow(title: "Lowest Temperature", value: lifetime.lowestTemperature.map(BatteryFormat.temperature))
+            FigureRow(title: "Average Temperature", value: lifetime.averageTemperature.map(BatteryFormat.temperature))
+            FigureRow(title: "Highest Charging Current", value: lifetime.highestChargeCurrent.map(BatteryFormat.amps))
+            FigureRow(
+                title: "Highest Discharging Current", value: lifetime.highestDischargeCurrent.map(BatteryFormat.amps))
+            FigureRow(title: "Highest Voltage", value: lifetime.highestVoltage.map(BatteryFormat.volts))
+            FigureRow(title: "Lowest Voltage", value: lifetime.lowestVoltage.map(BatteryFormat.volts))
+            if let hours = lifetime.operatingHours {
+                LabeledContent {
+                    Text(BatteryFormat.hours(hours))
+                        .monospacedDigit()
+                } label: {
+                    Text("Gauge Running Time")
+                    Text(
+                        "Counted since \(PackParser.gaugeStart(operatingHours: hours, at: date).formatted(date: .long, time: .omitted)), when the battery’s gauge was first powered.",
+                        comment: "Under the hours a battery's gauge has counted; the month and year it started")
+                }
+            }
+        } header: {
+            Text("Since It Was Made")
+        }
+    }
+}
+
+/// What the device is and when Tweakly read it.
+private struct DeviceSection: View {
+    let device: KnownDevice
+
+    var body: some View {
+        Section {
+            if device.kind != .mac {
+                FigureRow(title: "Model", value: DeviceArt.modelName(of: device))
+            }
+            FigureRow(title: "Model Identifier", value: device.model)
+            if let vendor = device.vendorID, let product = device.productID, device.model == nil {
+                FigureRow(
+                    title: "Vendor and Product ID",
+                    value: String(format: "0x%04X · 0x%04X", vendor, product))
+            }
+            LabeledContent("First Read") {
+                Text(device.firstSeen.formatted(date: .abbreviated, time: .omitted))
+            }
+            LabeledContent("Last Read") {
+                Text(device.latest.date.formatted(date: .abbreviated, time: .shortened))
+            }
+        } header: {
+            Text("Device")
+        }
+    }
+}
+
+/// A row with a figure that may be missing: nothing is drawn without it.
+private struct FigureRow: View {
+    let title: LocalizedStringKey
+    let value: String?
+    var detail: LocalizedStringKey?
+
+    var body: some View {
         if let value {
             LabeledContent {
                 Text(value).monospacedDigit()
@@ -637,14 +677,20 @@ extension BatteryText {
         )
     }
 
-    /// "35W USB-C Power Adapter", or what is known: "20 W, 9 V".
-    static func adapter(_ adapter: PowerAdapter) -> String {
+    /// "35W USB-C Power Adapter", or who made it, or that it is wireless; many chargers say none of it.
+    static func adapter(_ adapter: PowerAdapter) -> String? {
         if let name = adapter.name { return name }
-        var parts: [String] = []
-        if let watts = adapter.watts { parts.append(BatteryFormat.ratedWatts(watts)) }
-        if let volts = adapter.voltage { parts.append(BatteryFormat.volts(volts)) }
-        if adapter.isWireless { parts.append(String(localized: "Wireless")) }
-        return parts.formatted(.list(type: .and, width: .narrow))
+        if adapter.isWireless { return String(localized: "Wireless") }
+        return adapter.manufacturer
+    }
+
+    /// What the adapter is rated for and what the device agreed to take from it: "35 W · 20 V · 1.74 A".
+    static func adapterRating(_ adapter: PowerAdapter) -> String? {
+        let parts = [
+            adapter.watts.map(BatteryFormat.ratedWatts), adapter.voltage.map(BatteryFormat.adapterVolts),
+            adapter.current.map(BatteryFormat.amps),
+        ].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// "3 years", "5 months": how long the gauge has been counting, in the person's language with its own grammar.
@@ -677,6 +723,15 @@ extension BatteryFormat {
             .formatted(
                 .measurement(
                     width: .abbreviated, usage: .asProvided, numberFormatStyle: .number.precision(.fractionLength(3))))
+    }
+
+    /// An adapter's offered voltage, "20 V" or "8.6 V".
+    static func adapterVolts(_ value: Double) -> String {
+        Measurement(value: value, unit: UnitElectricPotentialDifference.volts)
+            .formatted(
+                .measurement(
+                    width: .abbreviated, usage: .asProvided,
+                    numberFormatStyle: .number.precision(.fractionLength(0...1))))
     }
 
     /// An adapter's rating, a whole number: "20 W".
