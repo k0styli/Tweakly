@@ -154,6 +154,7 @@ final class VolumeMixerTweak {
     #if TWEAKLY_AUTOMATION
         func openPopover() { presenter.show(for: item) }
         func closePopover() { presenter.close() }
+        func redrawIconForTesting() { item.redrawForTesting() }
     #endif
 
     // MARK: The process that plays

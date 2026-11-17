@@ -112,6 +112,16 @@
                 volumeMixer?()?.openPopover()
             case "mixer-close":
                 volumeMixer?()?.closePopover()
+            case "mixer-icon":
+                // The agent alone: <point size> <ultraLight…black>, to match the item to the system's sound item.
+                guard let size = Double(argument), words.count > 2 else { return }
+                let weights: [String: NSFont.Weight] = [
+                    "ultraLight": .ultraLight, "thin": .thin, "light": .light, "regular": .regular, "medium": .medium,
+                    "semibold": .semibold, "bold": .bold, "heavy": .heavy, "black": .black,
+                ]
+                MixerStatusItem.symbolConfiguration = NSImage.SymbolConfiguration(
+                    pointSize: size, weight: weights[words[2]] ?? .regular)
+                volumeMixer?()?.redrawIconForTesting()
             case "mixer-enabled":
                 guard stats != nil, let settings else { return }
                 settings.volumeMixerEnabled = argument == "1"

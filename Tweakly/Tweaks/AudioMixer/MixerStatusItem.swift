@@ -20,6 +20,15 @@ final class MixerStatusItem: MenuBarPopoverItem {
     private var images: [String: NSImage] = [:]
     private var shownKey: String?
 
+    /// The size and weight of Control Center's own sound item, measured beside it on the menu bar at 2x: its speaker is
+    /// 24 pixels tall and 17 wide, against 22 and 15 for the symbol as it came, and 14 points medium draws it column for
+    /// column. A symbol without a weight of its own is drawn medium in the menu bar, one with one as it says.
+    #if TWEAKLY_AUTOMATION
+        static var symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+    #else
+        static let symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+    #endif
+
     init() {
         super.init(length: NSStatusItem.squareLength, autosaveName: "tweakly.volume-mixer")
         item.button?.setAccessibilityLabel(String(localized: "Volume Mixer"))
@@ -64,10 +73,25 @@ final class MixerStatusItem: MenuBarPopoverItem {
                     systemSymbolName: key == "none" ? "speaker.slash" : "speaker.slash.fill",
                     accessibilityDescription: description)
             }
-        made?.isTemplate = true
-        images[key] = made
-        return made
+        let sized = made?.withSymbolConfiguration(Self.symbolConfiguration) ?? made
+        sized?.isTemplate = true
+        images[key] = sized
+        return sized
     }
+
+    #if TWEAKLY_AUTOMATION
+        /// Draws the speaker again, after a test changed its configuration.
+        func redrawForTesting() {
+            images = [:]
+            let key = shownKey
+            shownKey = nil
+            if let key {
+                let waves: Double? = Double(key)
+                shownKey = key
+                item.button?.image = image(for: key, waves: waves)
+            }
+        }
+    #endif
 
     override func sessionDidBegin() {
         onOpen?()
