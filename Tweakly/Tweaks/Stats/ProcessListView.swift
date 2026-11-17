@@ -303,6 +303,9 @@ private final class ProcessRow: NSView {
         trackingArea = area
     }
 
+    /// Whether the pointer rests on this row, where its button would end whatever app the row shows.
+    var isUnderPointer: Bool { isPointerInside }
+
     override func mouseEntered(with event: NSEvent) {
         isPointerInside = true
         setEndButtonShown(canEnd)
@@ -394,6 +397,12 @@ final class ProcessListView: NSStackView {
             return
         }
         emptyUpdates = 0
+        // While the pointer rests on the list each row keeps its app, as a list sorted again under it would put another
+        // app under the pointer and its button. The figures go on; an app that left the top keeps its last ones until the
+        // pointer goes, and an empty row stays empty.
+        let entries =
+            rows.contains(where: \.isUnderPointer) && !shownEntries.isEmpty
+            ? shownEntries.map { shown in entries.first { $0.id == shown.id } ?? shown } : entries
         // The list is worked out every two seconds and arrives every second.
         guard entries != shownEntries else { return }
         shownEntries = entries
