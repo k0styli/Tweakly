@@ -733,8 +733,9 @@ struct WallpaperThumbnail: View {
             // Decoded off the main thread, so a large library opens and scrolls without waiting for its pictures.
             // Again once the cleaner has written the wallpaper anew, with its thumbnail.
             .task(id: entry.map { "\($0.wallpaper.id) \($0.fileName) \($0.needsCleaning)" }) {
-                // At once from the cache when the picture is there, or decoded again when it has gone.
-                guard let entry, let image = await library.thumbnails.load(entry) else { return }
+                // At once from the cache when the picture is there, or decoded again when it has gone. A load overtaken
+                // by another wallpaper's must not take the place of the picture this view now keeps.
+                guard let entry, let image = await library.thumbnails.load(entry), !Task.isCancelled else { return }
                 loaded = (entry.wallpaper.id, image)
             }
             .onHover { inside in
