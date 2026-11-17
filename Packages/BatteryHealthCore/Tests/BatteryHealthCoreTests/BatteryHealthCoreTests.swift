@@ -190,9 +190,14 @@ private enum Samples {
                 "Name": "Magic Mouse", "Accessory Category": "Mouse", "Current Capacity": 55,
                 "Accessory Identifier": "M",
             ],
+            [
+                "Name": "JBL Flip 6", "Accessory Category": "Speaker", "Current Capacity": 70,
+                "Accessory Identifier": "S",
+            ],
         ]
         let found = PowerSourceParser.accessories(sources, date: Samples.date)
-        #expect(found.count == 2)
+        #expect(found.count == 3)
+        #expect(found.last?.kind == .speaker)
         let airPods = try #require(found.first)
         #expect(airPods.name == "AirPods Pro")
         #expect(airPods.kind == .headphones)
@@ -201,7 +206,7 @@ private enum Samples {
         #expect(airPods.reading.parts.map(\.percent) == [75, 70, 40])
         #expect(airPods.reading.state == .charging)
         #expect(airPods.reading.lowestPercent == 70)
-        let mouse = try #require(found.last)
+        let mouse = try #require(found.dropLast().last)
         #expect(mouse.kind == .mouse)
         #expect(mouse.reading.percent == 55)
         #expect(mouse.reading.parts.isEmpty)
@@ -324,8 +329,12 @@ private enum Samples {
     }
 
     @Test func cells() {
-        #expect(MacBatteryParser.cellVoltages(["BC1V": 4355, "BC2V": 4356, "BC3V": 4357]) == [4.355, 4.356, 4.357])
-        #expect(MacBatteryParser.cellVoltages(["BC1V": 0]) == nil)
+        let banks: [[String: Any]] = [
+            ["CellVoltage": 4262, "Qmax": 4584], ["CellVoltage": 4258], ["CellVoltage": 4262],
+        ]
+        #expect(PackParser.cellVoltages(banks: banks) == [4.262, 4.258, 4.262])
+        #expect(PackParser.cellVoltages(banks: [["CellVoltage": 0]]) == nil)
+        #expect(PackParser.cellVoltages(banks: []) == nil)
     }
 }
 

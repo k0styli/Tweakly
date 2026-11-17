@@ -8,6 +8,7 @@ public enum DeviceKind: String, Codable, Sendable, CaseIterable {
     case iPod
     case watch
     case headphones
+    case speaker
     case mouse
     case keyboard
     case trackpad

@@ -125,6 +125,7 @@ public enum PowerSourceParser {
         {
             return .headphones
         }
+        if text.contains("speaker") || text.contains("soundbar") { return .speaker }
         if text.contains("game") || text.contains("controller") { return .gameController }
         if text.contains("watch") { return .watch }
         return .other

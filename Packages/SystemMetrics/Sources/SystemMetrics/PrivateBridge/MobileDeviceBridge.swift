@@ -351,6 +351,7 @@ public final class MobileDevices: @unchecked Sendable {
             }
             links.open[attached.identifier] = nil
             Self.close(link, symbols)
+            metricsLog.info("A device's kept session stopped answering and is set up again")
         }
         var report = fullReport(of: attached)
         if report.problem == nil, let link = links.open[attached.identifier] {
@@ -397,6 +398,7 @@ public final class MobileDevices: @unchecked Sendable {
             return report
         }
         links.open[attached.identifier] = link
+        metricsLog.info("A device session was set up (\(attached.connection.rawValue, privacy: .public))")
         return quick
     }
 

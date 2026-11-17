@@ -6,7 +6,7 @@ import notify
 
 /// Reads batteries for the Battery Health page, in the window's process and only while the page is open: this Mac's
 /// battery from the registry's `AppleSmartBattery` and `AppleSmartBatteryPack`, IOKit's power sources and the SMC (live
-/// watts, temperature and cells); a UPS through the public power sources; Bluetooth accessories through IOKit's private
+/// watts and temperature), each cell from `AppleSmartBatteryBank`; a UPS through the public power sources; Bluetooth accessories through IOKit's private
 /// listing.
 ///
 /// Each read runs on the reader's own queue and answers there.
@@ -23,8 +23,8 @@ public final class BatteryHealthReader: @unchecked Sendable {
 
     private var sensors: BatterySensorReader?
     private var triedSensors = false
-    /// The pack's lifetime record and the cells move by the hour, so they are read now and then.
-    private var slow: (pack: [String: Any]?, cells: [Double]?, time: TimeInterval)?
+    /// The pack's lifetime record moves by the hour, so it is read now and then.
+    private var slow: (pack: [String: Any]?, time: TimeInterval)?
     private static let slowInterval: TimeInterval = 300
     /// The registry updates about once a minute and its whole dictionary, bridged to Swift, is most of a read's cost,
     /// so between the system's own notices it is fetched every 30 seconds while the SMC gives the live watts.
@@ -81,8 +81,7 @@ public final class BatteryHealthReader: @unchecked Sendable {
             reading.condition = condition == "Good" ? .normal : .serviceRecommended
         }
         if slow == nil || uptime - (slow?.time ?? 0) >= Self.slowInterval {
-            let cells = sensors.map { MacBatteryParser.cellVoltages($0.integers(MacBatteryParser.cellKeys)) } ?? nil
-            slow = (Self.registry("AppleSmartBatteryPack"), cells, uptime)
+            slow = (Self.registry("AppleSmartBatteryPack"), uptime)
         }
         if let sensors {
             reading.temperature = reading.temperature ?? sensors.batteryTemperature(now: uptime)
@@ -91,7 +90,8 @@ public final class BatteryHealthReader: @unchecked Sendable {
             if !onBattery, let input = sensors.adapterInput() { reading.adapterPower = input }
         }
         if let pack = slow?.pack { PackParser.apply(pack: pack, to: &reading) }
-        reading.cellVoltages = slow?.cells
+        // Each cell follows the registry, which the cache above already paces.
+        reading.cellVoltages = Self.cellVoltages()
         if !reading.isOnPower {
             reading.adapter = nil
             reading.adapterPower = nil
@@ -104,6 +104,24 @@ public final class BatteryHealthReader: @unchecked Sendable {
             let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
         else { return [] }
         return list.compactMap { IOPSGetPowerSourceDescription(info, $0)?.takeUnretainedValue() as? [String: Any] }
+    }
+
+    /// Volts of each cell group, from the battery's banks in the public registry. On the MacBook Air checked they add
+    /// up to the pack's voltage, as the SMC's `BC1V`… did.
+    private static func cellVoltages() -> [Double]? {
+        var iterator: io_iterator_t = 0
+        guard
+            IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("AppleSmartBatteryBank"), &iterator)
+                == KERN_SUCCESS
+        else { return nil }
+        defer { IOObjectRelease(iterator) }
+        var banks: [[String: Any]] = []
+        while case let bank = IOIteratorNext(iterator), bank != 0 {
+            defer { IOObjectRelease(bank) }
+            let data = IORegistryEntryCreateCFProperty(bank, "BatteryData" as CFString, kCFAllocatorDefault, 0)
+            if let values = data?.takeRetainedValue() as? [String: Any] { banks.append(values) }
+        }
+        return PackParser.cellVoltages(banks: banks)
     }
 
     private static func registry(_ entryClass: String) -> [String: Any]? {

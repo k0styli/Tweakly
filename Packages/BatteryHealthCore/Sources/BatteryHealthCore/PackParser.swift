@@ -91,20 +91,14 @@ public enum PackParser {
         return date
     }
 
+    /// Volts of each cell group from the banks' `BatteryData`, in registry order, while they read as a lithium cell can.
+    public static func cellVoltages(banks: [[String: Any]]) -> [Double]? {
+        let cells = banks.compactMap { RegistryParser.int($0["CellVoltage"]) }.filter { (2_000...5_000).contains($0) }
+        return cells.isEmpty ? nil : cells.map { Double($0) / 1_000 }
+    }
+
     /// When the gauge started counting.
     public static func gaugeStart(operatingHours: Int, at date: Date) -> Date {
         date.addingTimeInterval(-Double(operatingHours) * 3_600)
-    }
-}
-
-/// What a Mac's SMC adds: each cell group's voltage. The keys are undocumented; on the MacBook Air M2 checked, the three
-/// added up to the pack's voltage in the registry.
-public enum MacBatteryParser {
-    public static let cellKeys = (1...6).map { "BC\($0)V" }
-
-    /// Volts of each cell group, in order, while they read as a lithium cell can.
-    public static func cellVoltages(_ values: [String: Int]) -> [Double]? {
-        let cells = cellKeys.compactMap { values[$0] }.filter { (2_000...5_000).contains($0) }
-        return cells.isEmpty ? nil : cells.map { Double($0) / 1_000 }
     }
 }
