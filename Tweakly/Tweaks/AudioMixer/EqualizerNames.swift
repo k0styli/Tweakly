@@ -3,9 +3,10 @@ import Foundation
 
 /// What the equalizer's choices are called, in the words Music uses for the same presets.
 enum EqualizerNames {
-    /// Music's presets but Flat, which is the same as Off here, in the order of their names, as Music lists them.
-    static var presets: [EqualizerPreset] {
-        EqualizerPreset.builtIn.filter { $0.id != EqualizerPreset.flatID }
+    /// Music's presets in the order of their names, as Music lists them. Flat sounds the same as Off, so only a menu
+    /// beside the curve offers it: there it opens an even curve to draw on.
+    static func presets(includingFlat: Bool = false) -> [EqualizerPreset] {
+        EqualizerPreset.builtIn.filter { includingFlat || $0.id != EqualizerPreset.flatID }
             .sorted { name(of: $0.id).localizedStandardCompare(name(of: $1.id)) == .orderedAscending }
     }
 

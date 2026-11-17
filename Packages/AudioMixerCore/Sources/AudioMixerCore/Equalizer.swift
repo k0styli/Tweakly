@@ -41,6 +41,16 @@ public struct EqualizerSettings: Codable, Equatable, Sendable {
         value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : 0
     }
 
+    /// A band's gain while its point is dragged on the curve: moved by as much as the pointer, in quarter decibels,
+    /// from the gain it had when taken, and caught at 0 dB within half a decibel. A pointer that has not yet moved a
+    /// quarter decibel leaves it as it was, so a click, or a preset's value off the quarter steps, changes nothing.
+    public static func draggedGain(from gain: Double, by distance: Double) -> Double {
+        let step = (distance * 4).rounded() / 4
+        guard step != 0 else { return gain }
+        let moved = clamp(gain + step)
+        return abs(moved) < 0.5 ? 0 : moved
+    }
+
     private enum CodingKeys: String, CodingKey { case preamp, bands, presetID }
 
     public init(from decoder: Decoder) throws {

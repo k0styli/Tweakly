@@ -28,6 +28,9 @@ struct VolumeMixerPageView: View {
     @State private var presetName = ""
     /// The equalizer the popover's Customize… asked for, scrolled to once it is drawn.
     @State private var requested: String?
+    /// The equalizers whose curves are shown though even: chosen Flat, dragged back to 0 dB or asked for by the
+    /// popover. A curve once shown stays until Off is chosen, so it never vanishes from under the pointer.
+    @State private var openEqualizers: Set<String> = []
 
     var body: some View {
         ScrollViewReader { scroller in
@@ -80,11 +83,14 @@ struct VolumeMixerPageView: View {
                 }
             } else {
                 ForEach(Array(sortedApps.enumerated()), id: \.element) { index, bundleID in
+                    let target = EqualizerTarget.app(bundleID: bundleID, name: AppIdentity.of(bundleID).name)
                     AppRuleSection(
                         bundleID: bundleID, rule: rules.rule(for: bundleID), outputs: outputs,
                         highest: AudioRuleBook.highestVolume(boosting: settings.volumeMixerBoosts), custom: custom,
+                        isEqualizerOpen: openEqualizers.contains(target.id),
                         change: { change(bundleID, $0) },
-                        makePreset: { startNaming(.app(bundleID: bundleID, name: AppIdentity.of(bundleID).name)) },
+                        openEqualizer: { setOpen($0, target) },
+                        makePreset: { startNaming(target) },
                         editList: { isListingPresets = true }
                     ) {
                         if index == 0 { appsTitle }
@@ -120,6 +126,7 @@ struct VolumeMixerPageView: View {
                         // The apps only: the outputs' equalizers are not theirs.
                         AudioRuleStore.save(AudioRuleBook(outputs: AudioRuleStore.load().outputs))
                         shownApps = []
+                        openEqualizers = openEqualizers.filter { !$0.hasPrefix("app:") }
                         reload()
                     }
                 }
@@ -182,11 +189,12 @@ struct VolumeMixerPageView: View {
             ForEach(equalizerOutputs, id: \.uid) { output in
                 let target = EqualizerTarget.output(uid: output.uid, name: output.name)
                 let equalizer = rules.equalizer(forOutput: output.uid)
+                let isOpen = openEqualizers.contains(target.id)
                 LabeledContent {
                     EqualizerPicker(
                         title: Text(verbatim: output.name), settings: equalizer, custom: custom,
-                        choose: { target.save($0) }, makePreset: { startNaming(target) },
-                        editList: { isListingPresets = true }
+                        isOpen: isOpen, choose: { save($0, to: target, open: $1) },
+                        makePreset: { startNaming(target) }, editList: { isListingPresets = true }
                     )
                     .labelsHidden()
                     .fixedSize()
@@ -207,8 +215,8 @@ struct VolumeMixerPageView: View {
                 .id(target.id)
                 // Turned on, the equalizer opens right here, as a row does in System Settings; an output not
                 // connected keeps only its menu.
-                if !equalizer.isFlat, output.isStereo, output.isConnected {
-                    EqualizerRows(settings: equalizer) { target.save($0) }
+                if !equalizer.isFlat || isOpen, output.isStereo, output.isConnected {
+                    EqualizerRows(settings: equalizer) { save($0, to: target, open: true) }
                 }
             }
         } header: {
@@ -217,6 +225,21 @@ struct VolumeMixerPageView: View {
                 detail: Text(
                     "For everything an output plays, with Music’s presets. An app’s own equalizer is in its group above."
                 ))
+        }
+    }
+
+    /// Saved, shown at once, and its curve opened or closed.
+    private func save(_ equalizer: EqualizerSettings, to target: EqualizerTarget, open: Bool) {
+        let saved = target.save(equalizer)
+        if saved != rules { rules = saved }
+        setOpen(open, target)
+    }
+
+    private func setOpen(_ open: Bool, _ target: EqualizerTarget) {
+        if open {
+            openEqualizers.insert(target.id)
+        } else {
+            openEqualizers.remove(target.id)
         }
     }
 
@@ -235,7 +258,7 @@ struct VolumeMixerPageView: View {
         guard let target = naming, !name.isEmpty else { return }
         let preset = CustomEqualizerPreset(name: name, from: target.settings(in: AudioRuleStore.load()))
         AudioRuleStore.saveCustomPresets(AudioRuleStore.customPresets() + [preset])
-        target.save(preset.settings)
+        save(preset.settings, to: target, open: true)
         naming = nil
     }
 
@@ -267,16 +290,15 @@ struct VolumeMixerPageView: View {
         }
     }
 
-    /// The equalizer the popover asked to customize, once: scrolled to, an app's group shown if it had none yet.
+    /// The equalizer the popover asked to customize, once: its curve open, even if it is off, scrolled to, and an
+    /// app's group shown if it had none yet.
     private func openRequestedEqualizer() {
-        guard let request = AudioRuleStore.takeEditorRequest() else { return }
-        if request.hasPrefix("app:") {
-            let bundleID = String(request.dropFirst("app:".count))
-            if !shownApps.contains(bundleID) { shownApps.append(bundleID) }
-            requested = EqualizerTarget.app(bundleID: bundleID, name: "").id
-        } else if request.hasPrefix("output:") {
-            requested = EqualizerTarget.output(uid: String(request.dropFirst("output:".count)), name: "").id
+        guard let request = AudioRuleStore.takeEditorRequest(), let target = EqualizerTarget(id: request) else {
+            return
         }
+        if case .app(let bundleID, _) = target, !shownApps.contains(bundleID) { shownApps.append(bundleID) }
+        openEqualizers.insert(target.id)
+        requested = target.id
     }
 
     private var sortedApps: [String] {
@@ -303,7 +325,15 @@ struct VolumeMixerPageView: View {
 
     private func reload() {
         let stored = AudioRuleStore.load()
-        if stored != rules { rules = stored }
+        if stored != rules {
+            // Turned off elsewhere, in the popover: the curve closes here too. The page's own changes are in `rules`
+            // already, so a curve dragged back to 0 dB here stays.
+            openEqualizers = openEqualizers.filter { id in
+                guard let target = EqualizerTarget(id: id) else { return false }
+                return !target.settings(in: stored).isFlat || target.settings(in: rules).isFlat
+            }
+            rules = stored
+        }
         let added = stored.rules.keys.filter { !shownApps.contains($0) }
         if !added.isEmpty { shownApps += added }
         hasStopped = AudioRuleStore.hasStopped
@@ -320,7 +350,9 @@ private struct AppRuleSection<Header: View>: View {
     let outputs: [AudioDevice]
     let highest: Double
     let custom: [CustomEqualizerPreset]
+    let isEqualizerOpen: Bool
     let change: ((inout AppAudioRule) -> Void) -> Void
+    let openEqualizer: (Bool) -> Void
     let makePreset: () -> Void
     let editList: () -> Void
     @ViewBuilder let header: () -> Header
@@ -329,7 +361,10 @@ private struct AppRuleSection<Header: View>: View {
         let identity = AppIdentity.of(bundleID)
         Section {
             LabeledContent {
-                Button("Reset") { change { $0 = .standard } }
+                Button("Reset") {
+                    change { $0 = .standard }
+                    openEqualizer(false)
+                }
             } label: {
                 Label {
                     Text(identity.name)
@@ -373,20 +408,23 @@ private struct AppRuleSection<Header: View>: View {
                 }
             }
             EqualizerPicker(
-                title: Text("Equalizer"), settings: rule.equalizer ?? .flat, custom: custom,
-                choose: setEqualizer, makePreset: makePreset, editList: editList
+                title: Text("Equalizer"), settings: equalizer, custom: custom, isOpen: isEqualizerOpen,
+                choose: { setEqualizer($0, open: $1) }, makePreset: makePreset, editList: editList
             )
             .id(EqualizerTarget.app(bundleID: bundleID, name: "").id)
-            if let equalizer = rule.equalizer, !equalizer.isFlat {
-                EqualizerRows(settings: equalizer, change: setEqualizer)
+            if !equalizer.isFlat || isEqualizerOpen {
+                EqualizerRows(settings: equalizer) { setEqualizer($0, open: true) }
             }
         } header: {
             header()
         }
     }
 
-    private func setEqualizer(_ settings: EqualizerSettings) {
+    private var equalizer: EqualizerSettings { rule.equalizer ?? .flat }
+
+    private func setEqualizer(_ settings: EqualizerSettings, open: Bool) {
         change { $0.equalizer = settings.isFlat ? nil : settings }
+        openEqualizer(open)
     }
 
     /// 0, 50 and 100 %, and 150 and 200 % while boosting, which the knob is drawn to.

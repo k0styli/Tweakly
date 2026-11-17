@@ -23,6 +23,17 @@ enum EqualizerTarget: Identifiable, Hashable {
         }
     }
 
+    /// From an `id`, without the name, which only saving an output's equalizer needs.
+    init?(id: String) {
+        if id.hasPrefix("app:") {
+            self = .app(bundleID: String(id.dropFirst("app:".count)), name: "")
+        } else if id.hasPrefix("output:") {
+            self = .output(uid: String(id.dropFirst("output:".count)), name: "")
+        } else {
+            return nil
+        }
+    }
+
     func settings(in book: AudioRuleBook) -> EqualizerSettings {
         switch self {
         case .output(let uid, _): book.equalizer(forOutput: uid)
@@ -30,7 +41,9 @@ enum EqualizerTarget: Identifiable, Hashable {
         }
     }
 
-    func save(_ settings: EqualizerSettings) {
+    /// The rules as saved, for the page to show without reading them back.
+    @discardableResult
+    func save(_ settings: EqualizerSettings) -> AudioRuleBook {
         switch self {
         case .output(let uid, let name):
             AudioRuleStore.setEqualizer(settings, forOutput: uid, name: name)
@@ -40,13 +53,16 @@ enum EqualizerTarget: Identifiable, Hashable {
     }
 }
 
-/// The equalizer's choice as a pop-up menu, as Music has it: Off, Manual once a point was moved, Music's presets, the
-/// person's own, and, as at the foot of Music's menu, Make Preset… and Edit List….
+/// The equalizer's choice as a pop-up menu, as Music has it: Off, Manual once a point was moved, Music's presets with
+/// Flat, the person's own, and, as at the foot of Music's menu, Make Preset… and Edit List….
 struct EqualizerPicker: View {
     let title: Text
     let settings: EqualizerSettings
     let custom: [CustomEqualizerPreset]
-    let choose: (EqualizerSettings) -> Void
+    /// Whether its curve is shown: an even one reads Flat then, not Off.
+    var isOpen = false
+    /// A choice, and whether its curve shows: every choice but Off opens it, Flat too, to draw on.
+    let choose: (EqualizerSettings, _ open: Bool) -> Void
     /// Saves the settings as a preset of the person's; nil where that cannot be done.
     var makePreset: (() -> Void)?
     /// Renames and deletes the person's presets.
@@ -64,7 +80,7 @@ struct EqualizerPicker: View {
                 Text("Manual", comment: "An equalizer whose sliders were moved by hand, as in Music").tag(Self.manual)
             }
             Divider()
-            ForEach(EqualizerNames.presets) { preset in
+            ForEach(EqualizerNames.presets(includingFlat: true)) { preset in
                 Text(verbatim: EqualizerNames.name(of: preset.id)).tag(preset.id)
             }
             if !custom.isEmpty {
@@ -88,7 +104,7 @@ struct EqualizerPicker: View {
     }
 
     private var current: String {
-        if settings.isFlat { return Self.off }
+        if settings.isFlat { return isOpen ? EqualizerPreset.flatID : Self.off }
         return EqualizerNames.choice(of: settings, custom: custom) ?? Self.manual
     }
 
@@ -97,12 +113,12 @@ struct EqualizerPicker: View {
             get: { current },
             set: { tag in
                 switch tag {
-                case Self.off: choose(.flat)
+                case Self.off: choose(.flat, false)
                 case Self.manual: break
                 case Self.makeTag: makePreset?()
                 case Self.editTag: editList?()
                 default:
-                    if let settings = EqualizerNames.settings(for: tag, custom: custom) { choose(settings) }
+                    if let settings = EqualizerNames.settings(for: tag, custom: custom) { choose(settings, true) }
                 }
             })
     }
@@ -163,8 +179,11 @@ struct EqualizerRows: View {
 struct EqualizerCurve: View {
     let settings: EqualizerSettings
     let change: (EqualizerSettings) -> Void
-    @State private var dragged: Int?
+    /// The band being dragged, its gain and the height where the drag began.
+    @State private var grabbed: (band: Int, gain: Double, y: CGFloat)?
     @State private var isAtZero = false
+    /// Where each band's point lies, for VoiceOver to outline the point it reads.
+    @State private var bandFrames: [CGRect] = []
 
     private static let frequencies = EqualizerSettings.frequencies
     /// 20 Hz to 20 kHz, evenly on a logarithmic scale.
@@ -212,7 +231,7 @@ struct EqualizerCurve: View {
             ForEach(bands) { band in
                 PointMark(x: .value(Self.frequencySeries, band.x), y: .value(Self.gainSeries, band.y))
                     .foregroundStyle(Color.accentColor)
-                    .symbolSize(dragged == band.id ? 140 : 70)
+                    .symbolSize(grabbed?.band == band.id ? 140 : 70)
             }
         }
         .chartXScale(domain: log10(20.0)...log10(20_000.0))
@@ -239,6 +258,9 @@ struct EqualizerCurve: View {
                     .fill(.clear)
                     .contentShape(.rect)
                     .gesture(drag(proxy: proxy, geometry: geometry))
+                    .onChange(of: Self.bandFrames(proxy: proxy, geometry: geometry), initial: true) { _, frames in
+                        bandFrames = frames
+                    }
                     .simultaneousGesture(
                         SpatialTapGesture(count: 2).onEnded { tap in
                             // A double click puts the nearest band back at 0 dB.
@@ -251,43 +273,61 @@ struct EqualizerCurve: View {
         }
         .accessibilityHidden(true)
         .overlay {
-            // VoiceOver gets each band as a control of its own, adjusted as a slider is.
-            HStack(spacing: 0) {
-                ForEach(Self.frequencies.indices, id: \.self) { band in
-                    Color.clear
-                        .accessibilityElement()
-                        .accessibilityLabel(Text(verbatim: EqualizerNames.spokenFrequency(Self.frequencies[band])))
-                        .accessibilityValue(Text(verbatim: EqualizerNames.decibels(settings.bands[band])))
-                        .accessibilityAdjustableAction { direction in
-                            let step = direction == .increment ? 0.5 : -0.5
-                            set(band, to: settings.bands[band] + step)
-                        }
-                }
+            // VoiceOver gets each band as a control of its own, adjusted as a slider is, over its point.
+            ForEach(Array(bandFrames.enumerated()), id: \.offset) { band, frame in
+                Color.clear
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    .accessibilityElement()
+                    .accessibilityLabel(Text(verbatim: EqualizerNames.spokenFrequency(Self.frequencies[band])))
+                    .accessibilityValue(Text(verbatim: EqualizerNames.decibels(settings.bands[band])))
+                    .accessibilityAdjustableAction { direction in
+                        let step = direction == .increment ? 0.5 : -0.5
+                        set(band, to: settings.bands[band] + step)
+                    }
+                    .allowsHitTesting(false)
             }
-            .allowsHitTesting(false)
         }
     }
 
+    /// A column of the plot's height around each band's point, as wide as the space between two bands.
+    private static func bandFrames(proxy: ChartProxy, geometry: GeometryProxy) -> [CGRect] {
+        guard let plot = proxy.plotFrame.map({ geometry[$0] }) else { return [] }
+        let xs = frequencies.compactMap { proxy.position(forX: log10($0)) }
+        guard xs.count == frequencies.count, let first = xs.first, let last = xs.last else { return [] }
+        let width = (last - first) / CGFloat(xs.count - 1)
+        return xs.map { CGRect(x: plot.minX + $0 - width / 2, y: plot.minY, width: width, height: plot.height) }
+    }
+
+    /// The band nearest where the drag began moves by as much as the pointer, from where it was: a click, or a drag
+    /// begun beside the point, moves nothing by itself.
     private func drag(proxy: ChartProxy, geometry: GeometryProxy) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { drag in
                 guard let plot = proxy.plotFrame else { return }
                 let origin = geometry[plot].origin
-                // The band nearest where the drag began, held until it ends.
-                if dragged == nil {
-                    dragged = nearestBand(at: drag.startLocation.x, proxy: proxy, geometry: geometry)
+                if grabbed == nil {
+                    guard let band = nearestBand(at: drag.startLocation.x, proxy: proxy, geometry: geometry) else {
+                        return
+                    }
+                    grabbed = (band, settings.bands[band], drag.startLocation.y)
+                    isAtZero = settings.bands[band] == 0
                 }
-                guard let band = dragged, let y: Double = proxy.value(atY: drag.location.y - origin.y) else { return }
-                // Quarter decibels, caught at 0 dB within half a decibel with a tap on the trackpad.
-                let atZero = abs(y) < 0.5
+                guard let grabbed,
+                    let start: Double = proxy.value(atY: grabbed.y - origin.y),
+                    let now: Double = proxy.value(atY: drag.location.y - origin.y)
+                else { return }
+                let gain = EqualizerSettings.draggedGain(from: grabbed.gain, by: now - start)
+                // A tap on the trackpad as the point is caught at 0 dB.
+                let atZero = gain == 0
                 if atZero, !isAtZero {
                     NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
                 }
                 isAtZero = atZero
-                set(band, to: atZero ? 0 : (y * 4).rounded() / 4)
+                set(grabbed.band, to: gain)
             }
             .onEnded { _ in
-                dragged = nil
+                grabbed = nil
                 isAtZero = false
             }
     }

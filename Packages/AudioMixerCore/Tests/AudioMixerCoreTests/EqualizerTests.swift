@@ -83,6 +83,32 @@ private func measuredGain(
     }
 }
 
+@Suite struct EqualizerDragTests {
+    @Test func aClickMovesNothing() {
+        // Acoustic's 4 kHz is off the quarter steps and stays exactly so.
+        #expect(EqualizerSettings.draggedGain(from: 4.1, by: 0) == 4.1)
+        #expect(EqualizerSettings.draggedGain(from: 4.1, by: 0.12) == 4.1)
+        #expect(EqualizerSettings.draggedGain(from: -1.5, by: -0.1) == -1.5)
+    }
+
+    @Test func aPointMovesAsFarAsThePointer() {
+        #expect(EqualizerSettings.draggedGain(from: -1.5, by: 4.02) == 2.5)
+        #expect(abs(EqualizerSettings.draggedGain(from: 4.1, by: -1.0) - 3.1) < 1e-9)
+    }
+
+    @Test func zeroCatchesThePointWithinHalfADecibel() {
+        #expect(EqualizerSettings.draggedGain(from: 3, by: -2.7) == 0)
+        #expect(EqualizerSettings.draggedGain(from: 3, by: -2.5) == 0.5)
+        #expect(EqualizerSettings.draggedGain(from: 0, by: 0.3) == 0)
+        #expect(EqualizerSettings.draggedGain(from: 0, by: 0.5) == 0.5)
+    }
+
+    @Test func thePointStopsAtTheSlidersReach() {
+        #expect(EqualizerSettings.draggedGain(from: 10, by: 5) == 12)
+        #expect(EqualizerSettings.draggedGain(from: -10, by: -40) == -12)
+    }
+}
+
 @Suite struct EqualizerFilterTests {
     @Test(arguments: [44_100.0, 48_000, 96_000])
     func everyPresetPassesThroughItsSliders(sampleRate: Double) {

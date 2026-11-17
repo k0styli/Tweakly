@@ -782,7 +782,7 @@ enum EqualizerMenu {
             items.append(manual)
         }
         items.append(.separator())
-        for preset in EqualizerNames.presets {
+        for preset in EqualizerNames.presets() {
             items.append(
                 MenuAction.item(EqualizerNames.name(of: preset.id), state: current == preset.id ? .on : .off) {
                     choose(preset.settings)
