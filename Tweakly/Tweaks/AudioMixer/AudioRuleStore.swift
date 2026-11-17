@@ -81,7 +81,10 @@ enum AudioRuleStore {
     @discardableResult
     static func setEqualizer(_ equalizer: EqualizerSettings, forOutput uid: String, name: String) -> AudioRuleBook {
         var book = load()
-        let kind = AudioSystem.devices(input: false).first { $0.uid == uid }?.kind
+        // Its kind is looked up once: a point dragged on the curve saves many times a second.
+        let kind =
+            book.outputs[uid]?.deviceKind == nil
+            ? AudioSystem.devices(input: false).first { $0.uid == uid }?.kind : nil
         book.setEqualizer(equalizer, forOutput: uid, name: name, kind: kind)
         save(book)
         return book
